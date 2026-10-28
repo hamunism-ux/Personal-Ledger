@@ -1,5 +1,5 @@
 /* 記帳本 service worker — App 殼快取；資料走 Apps Script，不經過這裡 */
-const CACHE = 'ledger-57011d5e';
+const CACHE = 'ledger-fc78b5af';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {

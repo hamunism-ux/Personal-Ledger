@@ -103,6 +103,9 @@ textarea.input{min-height:64px;resize:vertical}
   font-family:var(--serif);font-weight:700;font-size:16px;line-height:1;background:transparent}
 .seal.fill{background:var(--c);color:var(--card)}
 .seal.sm{width:26px;height:26px;font-size:14px}
+.seal.ic svg{width:68%;height:68%;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.seal.ic.sm svg{stroke-width:2.1}
+.cat .seal.ic svg{width:66%;height:66%;stroke-width:1.8}
 
 /* ---------- add form */
 .form-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -127,7 +130,8 @@ textarea.input{min-height:64px;resize:vertical}
 @media (prefers-reduced-motion: reduce){.stamp.go{animation:fade 1.2s linear}@keyframes fade{0%,70%{opacity:.9}100%{opacity:0}}}
 
 .itemfield{margin-top:8px}
-.autohint{display:flex;align-items:center;gap:6px;min-height:0;font-size:12px;color:var(--ink-2);margin-top:4px}
+.autohint{display:block;line-height:1.6;font-size:12px;color:var(--ink-2);margin-top:4px}
+.autohint .seal{display:inline-grid;vertical-align:-5px;margin-right:5px}
 .autohint:empty{display:none}
 .autohint .seal{width:20px;height:20px;font-size:12px;border-width:1px}
 .autohint b{font-weight:600;color:var(--ink)}
@@ -338,7 +342,7 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="57011d5e">
+<meta name="app-version" content="fc78b5af">
 </head>
 <body>
 <header class="top">
@@ -607,16 +611,40 @@ function parseAmount(s){
   try { const v = Function('"use strict";return (' + s + ')')(); return isFinite(v) ? Math.round(v * 100) / 100 : NaN; } catch(e){ return NaN; }
 }
 
+/* ---------- 分類小圖示（手繪線條風，24×24；找不到的分類退回印章字） */
+const CAT_ICONS = {
+  '餐飲': '<path d="M4.5 12h15c0 4.2-3.2 7.2-7.5 7.2S4.5 16.2 4.5 12z"/><path d="M8.3 4.2l3.4 7.3M16.6 4.2l-3.7 7.3"/><path d="M9.5 19.2v1.6M14.5 19.2v1.6"/>',
+  '交通': '<path d="M5 13l1.8-5.2A1.5 1.5 0 0 1 8.2 7h7.6a1.5 1.5 0 0 1 1.4.8L19 13"/><path d="M3.8 13h16.4v4.5H3.8z"/><path d="M6.2 17.5v2M17.8 17.5v2"/><path d="M7 15.3h1.6M15.4 15.3H17"/>',
+  '居住': '<path d="M3.8 11.2L12 4.2l8.2 7"/><path d="M6.2 9.8v9.7h11.6V9.8"/><path d="M10 19.5v-5.2h4v5.2"/>',
+  '購物': '<path d="M5.2 8.3h13.6l-1 11.4H6.2z"/><path d="M9 8.3V6.6a3 3 0 0 1 6 0v1.7"/><path d="M9.3 11.6c.5 1.4 1.4 2.1 2.7 2.1s2.2-.7 2.7-2.1"/>',
+  '健康': '<path d="M12 19.6s-7.2-4.4-7.2-9.6A3.9 3.9 0 0 1 12 7.4a3.9 3.9 0 0 1 7.2 2.6c0 5.2-7.2 9.6-7.2 9.6z"/><path d="M6.6 12.3h2.9l1.4-2.3 1.9 4.4 1.3-2.1h3.3"/>',
+  '學習': '<path d="M12 6.4C10 5 7.2 4.8 4 5.3v12.8c3.2-.5 6-.3 8 1.1 2-1.4 4.8-1.6 8-1.1V5.3c-3.2-.5-6-.3-8 1.1z"/><path d="M12 6.4v12.8"/><path d="M6.4 8.6c1.3-.1 2.4 0 3.4.3M6.4 11.2c1.3-.1 2.4 0 3.4.3"/>',
+  '旅遊娛樂': '<path d="M4 8.6h16v10.2H4z"/><path d="M9 8.6V6.2a1.4 1.4 0 0 1 1.4-1.4h3.2A1.4 1.4 0 0 1 15 6.2v2.4"/><path d="M8.6 8.6v10.2M15.4 8.6v10.2"/><path d="M6.8 20.6v-1.8M17.2 20.6v-1.8"/>',
+  '家庭人情': '<circle cx="9" cy="8.2" r="2.9"/><circle cx="16.4" cy="9.6" r="2.3"/><path d="M3.4 19.4c0-3.4 2.5-5.8 5.6-5.8s5.6 2.4 5.6 5.8"/><path d="M15.2 19.4c0-2.3 1.4-4.1 3.6-4.1.7 0 1.4.2 1.9.5"/>',
+  '稅保': '<path d="M12 3.4l7.6 2.8v5.6c0 4.8-3.3 7.9-7.6 8.8-4.3-.9-7.6-4-7.6-8.8V6.2z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/>',
+  '其他': '<circle cx="12" cy="12" r="8.4"/><circle cx="7.9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="16.1" cy="12" r="1" fill="currentColor" stroke="none"/>',
+  '日常彙總': '<path d="M4 6.6h16v3.2H4z"/><path d="M5.2 9.8v9.4h13.6V9.8"/><path d="M10 13.6h4"/>',
+  '家庭補貼': '<path d="M12.6 10.2s-3.1-2-3.1-4a1.8 1.8 0 0 1 3.1-1.2 1.8 1.8 0 0 1 3.1 1.2c0 2-3.1 4-3.1 4z"/><path d="M3.6 14.4h2.8l3 1.6h4a1.4 1.4 0 0 1 0 2.8H9.4"/><path d="M3.6 19.2h2.8l3.8 1h4.6l5-3a1.4 1.4 0 0 0-1.9-1.9l-3.6 1.6"/>',
+  '報銷退款': '<path d="M6.4 3.6h11.2v16.8l-1.9-1.4-1.9 1.4-1.8-1.4-1.8 1.4-1.9-1.4-1.9 1.4z"/><path d="M9.2 8.2h5.6M9.2 11.4h5.6M9.2 14.6h3.4"/>',
+  '其他補貼': '<circle cx="12" cy="12" r="8.4"/><path d="M9.2 7.8l2.8 3.6 2.8-3.6M12 11.4v5M9.6 13.4h4.8M9.6 15.4h4.8"/>',
+};
+/* 畫一個分類圖示；fill=true 用在深色底 */
+function catIcon(name, fallbackChar, cls){
+  const d = CAT_ICONS[name];
+  if (!d) return `<span class="seal ${cls || ''}">${esc(fallbackChar || String(name || '雜').charAt(0))}</span>`;
+  return `<span class="seal ic ${cls || ''}"><svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg></span>`;
+}
+
 /* ---------- categories */
 function catInfo(rec){
   if (rec.project){
     const p = S.projects.find(x => x.name === rec.project);
     const groups = p ? splitList(p.groups) : [];
     let i = groups.indexOf(rec.cat); if (i < 0) i = hash(rec.cat);
-    return {seal: (rec.cat || rec.project).charAt(0), color: rec.type === '補貼' ? 'var(--plus)' : PALETTE[i % PALETTE.length]};
+    return {seal: (rec.cat || rec.project).charAt(0), name: '', color: rec.type === '補貼' ? 'var(--plus)' : PALETTE[i % PALETTE.length]};
   }
   const c = S.cats.find(x => x.name === rec.cat && x.type === rec.type) || S.cats.find(x => x.name === rec.cat);
-  return c ? {seal:c.seal, color:c.color} : {seal:(rec.cat || '雜').charAt(0), color:'#7A746A'};
+  return c ? {seal:c.seal, name:c.name, color:c.color} : {seal:(rec.cat || '雜').charAt(0), name:rec.cat, color:'#7A746A'};
 }
 const splitList = s => String(s || '').split(/[,，、]/).map(x => x.trim()).filter(Boolean);
 function hash(s){ let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
@@ -826,7 +854,7 @@ function mountForm(root, rec, {mode, onSaved}){
   }
   function paintCats(){
     q('.cat-label').textContent = f.project ? '分組' : '分類';
-    q('.catgrid').innerHTML = catOptions().map(c => `<button class="cat" data-n="${esc(c.name)}" ${c.add ? 'data-add="1"' : ''} aria-pressed="${c.name === f.cat}" style="--c:${c.color}"><span class="seal">${esc(c.seal)}</span>${c.add ? '新分組' : esc(c.name)}</button>`).join('');
+    q('.catgrid').innerHTML = catOptions().map(c => `<button class="cat" data-n="${esc(c.name)}" ${c.add ? 'data-add="1"' : ''} aria-pressed="${c.name === f.cat}" style="--c:${c.color}">${c.add ? `<span class="seal">＋</span>` : catIcon(c.name, c.seal)}${c.add ? '新分組' : esc(c.name)}</button>`).join('');
     paintSubs();
   }
   function subOptions(){
@@ -912,7 +940,7 @@ function mountForm(root, rec, {mode, onSaved}){
     const el = q('.autohint'); if (!el) return;
     if (!sg || f.catManual){ el.innerHTML = ''; return; }
     const c = S.cats.find(x => x.name === sg.cat && x.type === f.type) || {seal:sg.cat.charAt(0), color:'#777'};
-    el.innerHTML = `<span class="seal fill" style="--c:${c.color}">${esc(c.seal)}</span>自動分類為 <b>${esc(sg.cat)}${sg.sub ? '／' + esc(sg.sub) : ''}</b>${sg.tag ? `，標籤 <b>${esc(sg.tag)}</b>` : ''}<span class="tiny">　不對就點下面的分類改</span>`;
+    el.innerHTML = `<span style="--c:${c.color};display:contents">${catIcon(sg.cat, c.seal, 'fill')}</span><span>自動分類為 <b>${esc(sg.cat)}${sg.sub ? '／' + esc(sg.sub) : ''}</b>${sg.tag ? `，標籤 <b>${esc(sg.tag)}</b>` : ''}<span class="tiny muted">　不對可點下面改</span></span>`;
   }
   let autoT;
   q('.item').addEventListener('input', () => {
@@ -1005,7 +1033,7 @@ function rowHTML(r){
   const title = r.item || r.sub || r.cat;
   const meta = [`${+r.date.slice(5, 7)}/${+r.date.slice(8)} 週${weekday(r.date)}`, r.project ? r.cat : (r.sub ? r.cat + '／' + r.sub : r.cat)].join('　');
   return `<button class="rec${plus ? ' plus' : ''}" data-id="${esc(r.id)}">
-    <span class="seal sm${plus ? ' fill' : ''}" style="--c:${c.color}">${esc(c.seal)}</span>
+    <span style="--c:${c.color};display:contents">${catIcon(c.name, c.seal, 'sm' + (plus ? ' fill' : ''))}</span>
     <span class="body"><div class="t">${esc(title)}</div>
       <div class="m">${r.project ? `<span class="tag prj">${esc(r.project)}</span>` : ''}${r.spread > 1 ? `<span class="tag">攤${r.spread}月</span>` : ''}${esc(meta)}${r.note ? '　' + esc(r.note) : ''}</div></span>
     <span class="a"><div class="v">${plus ? '+' : ''}${fmt(v)}</div>${r.cur !== S.disp ? `<div class="o">${fmt(r.amount, r.cur)}</div>` : ''}</span>
@@ -1227,7 +1255,7 @@ function drawCats(X){
   const list = all.filter(([k]) => k !== HIST), hist = all.find(([k]) => k === HIST);
   const max = all.length ? Math.max(...all.map(([, c]) => c.v)) : 1;
   const row = ([k, c], label) => `<button class="catrow" data-cat="${esc(c.cat)}" data-k="${esc(k)}" style="--c:${c.info.color}">
-      <span class="seal sm" style="--c:${c.info.color}">${esc(c.info.seal)}</span>
+      <span style="--c:${c.info.color};display:contents">${catIcon(c.info.name, c.info.seal, 'sm')}</span>
       <span><span class="nm"><span>${esc(label || k)}</span><span>${(c.v / X.exp * 100).toFixed(1)}%</span></span><span class="track"><i style="width:${(c.v / max * 100).toFixed(1)}%"></i></span></span>
       <span class="v">${fmt(c.v)}</span></button>`;
   $('#catlist').innerHTML = (list.map(e => row(e)).join('') +
