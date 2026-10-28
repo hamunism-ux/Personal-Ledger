@@ -338,7 +338,7 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="196a7894">
+<meta name="app-version" content="392b7dc8">
 </head>
 <body>
 <header class="top">
@@ -832,8 +832,8 @@ function mountForm(root, rec, {mode, onSaved}){
   function subOptions(){
     if (f.project || !f.cat) return [];
     const c = S.cats.find(x => x.name === f.cat && x.type === f.type);
-    const set = new Map(); (c ? c.subs : []).forEach(s => set.set(s, 1));
-    S.records.forEach(r => { if (r.cat === f.cat && r.sub && !set.has(r.sub)) set.set(r.sub, 1); });
+    const set = new Map(); (c ? c.subs : []).filter(s => !(f.cat === '餐飲' && s === '外賣')).forEach(s => set.set(s, 1));
+    S.records.forEach(r => { if (r.cat === f.cat && r.sub && !set.has(r.sub) && !(f.cat === '餐飲' && r.sub === '外賣')) set.set(r.sub, 1); });
     return [...set.keys()];
   }
   function paintSubs(){
