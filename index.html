@@ -338,7 +338,7 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="8b696551">
+<meta name="app-version" content="57011d5e">
 </head>
 <body>
 <header class="top">
@@ -1053,7 +1053,7 @@ function drawList(){
     shown.map(g => {
       let ex = 0, sb = 0; g.rows.forEach(r => { const x = val(r); r.type === '補貼' ? sb += x : ex += x; });
       return `<div class="month"><div class="sum-line"><h3>${g.m.slice(0, 4)}年${ZH_MONTH[+g.m.slice(5) - 1]}月</h3>
-        <div class="tot">支出 <span class="num">${fmt(ex)}</span>${sb ? `　淨額 <span class="num">${fmt(ex - sb)}</span>` : ''}</div></div>
+        <div class="tot tiny muted">${g.rows.length} 筆</div></div>
         ${g.rows.map(rowHTML).join('')}</div>`;
     }).join('') + (groups.length > L.months ? `<div style="text-align:center;margin:18px 0"><button class="btn ghost" id="more">顯示更早的月份（還有 ${groups.length - L.months} 個月）</button></div>` : '');
   const m = $('#more'); if (m) m.onclick = () => { L.months += 12; drawList(); };
