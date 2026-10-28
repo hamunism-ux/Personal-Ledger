@@ -338,7 +338,7 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="392b7dc8">
+<meta name="app-version" content="8b696551">
 </head>
 <body>
 <header class="top">
@@ -1593,7 +1593,7 @@ function openSettings(){
       <dl class="kv"><dt>1 USD</dt><dd>${(+LATEST.CNY).toFixed(4)} CNY　${(+LATEST.TWD).toFixed(3)} TWD</dd><dt>1 CNY</dt><dd>${(LATEST.TWD / LATEST.CNY).toFixed(3)} TWD</dd><dt>更新於</dt><dd>${esc(s['匯率更新時間'] || '—')}</dd></dl>
       <button class="linkbtn" id="srate">立即更新匯率</button></div>
     <div class="sec" style="margin-top:18px"><h3>連線與同步</h3>
-      <dl class="kv"><dt>狀態</dt><dd id="syncState"></dd><dt>上次同步</dt><dd>${esc(Net.lastSync || '—')}</dd></dl>
+      <dl class="kv"><dt>狀態</dt><dd id="syncState"></dd><dt>上次同步</dt><dd>${esc(Net.lastSync || '—')}</dd><dt>App 版本</dt><dd>${esc((document.querySelector('meta[name=app-version]') || {}).content || '—')}</dd></dl>
       <button class="linkbtn" id="sconn">修改連線設定</button>　<button class="linkbtn" id="ssyncnow">立即同步</button></div>
     <p class="tiny muted" style="margin-top:14px">分類、印章字和顏色在試算表的 Categories 分頁修改；改完後按下方「重新載入」。</p>
     <div class="savebar"><button class="btn ghost" id="sreload">重新載入</button><button class="btn" id="ssave">儲存設定</button></div>`, body => {
