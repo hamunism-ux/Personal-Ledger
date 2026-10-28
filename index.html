@@ -338,7 +338,7 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="f7d64b37">
+<meta name="app-version" content="196a7894">
 </head>
 <body>
 <header class="top">
@@ -669,7 +669,8 @@ const CAT_RULES = {
     [/早餐|早飯|早點|包子|豆漿|油條|煎餅|飯糰|三明治|麥滿分/, '餐飲', '早餐'],
     [/午餐|午飯|中飯|中餐|便當/, '餐飲', '午餐'],
     [/晚餐|晚飯|宵夜|夜宵/, '餐飲', '晚餐'],
-    [/外賣|外送|美團|餓了麼|饿了么|ubereats|foodpanda/i, '餐飲', '外賣'],
+    [/外賣|外送|美團|餓了麼|饿了么|ubereats|foodpanda/i, '餐飲', 'MEAL', '外賣'],
+    [/麵|面|飯|饭|粥|餃|饺|餛飩|餡餅|漢堡|汉堡|披薩|pizza|麥當勞|肯德基|kfc|subway|沙拉|壽司|丼|拉麵|食堂|便利店.*(飯|麵)/i, '餐飲', 'MEAL'],
     [/火鍋|燒烤|烧烤|聚餐|請客|请客|日料|壽司|烤肉|牛排|西餐|餐廳|餐厅|酒吧|居酒屋|小酒館|brunch/i, '餐飲', '聚餐請客'],
     [/超市|盒馬|盒马|山姆|costco|叮咚|樸樸|朴朴|全家|7-?11|羅森|罗森|便利店|買菜|买菜|菜市場|水果|零食|麵包|面包|蛋糕|甜點/i, '餐飲', '買菜零食'],
     [/滴滴|打車|打车|計程車|出租車|出租车|taxi|uber|grab|曹操|高德打車/i, '交通', '打車'],
@@ -706,6 +707,8 @@ const CAT_RULES = {
   ],
 };
 const normItem = t => String(t || '').toLowerCase().replace(/[\s\d.,，。、:：;；\-—_/\\()（）\[\]【】+＋=~～!！?？'"“”‘’]+/g, '');
+/* 依當下時間判斷是哪一餐：10:30 前早餐、15:00 前午餐、之後晚餐 */
+function mealByTime(){ const h = new Date().getHours() + new Date().getMinutes() / 60; return h < 10.5 ? '早餐' : h < 15 ? '午餐' : '晚餐'; }
 function suggestCat(text, type){
   const raw = String(text || '').trim(), n = normItem(raw);
   if (!n) return null;
@@ -719,7 +722,7 @@ function suggestCat(text, type){
   hit = mine.map(r => ({r, k:normItem(r.item)})).filter(x => x.k.length >= 2 && n.includes(x.k)).sort((a, b) => b.k.length - a.k.length)[0];
   if (hit && ok(hit.r.cat, hit.r.sub)) return {cat:hit.r.cat, sub:hit.r.sub, src:'mine'};
   // 3) 內建關鍵字
-  for (const [re, c, s] of (CAT_RULES[type] || [])) if (re.test(raw)){ const o = ok(c, s); if (o) return {...o, src:'rule'}; }
+  for (const [re, c, s, tag] of (CAT_RULES[type] || [])) if (re.test(raw)){ const sub = s === 'MEAL' ? mealByTime() : s; const o = ok(c, sub); if (o) return {...o, src:'rule', tag}; }
   // 4) 以前記過的項目開頭跟輸入一樣（輸入至少兩個字）
   if (n.length >= 2){ hit = mine.find(r => normItem(r.item).startsWith(n)); if (hit && ok(hit.cat, hit.sub)) return {cat:hit.cat, sub:hit.sub, src:'mine'}; }
   return null;
@@ -909,7 +912,7 @@ function mountForm(root, rec, {mode, onSaved}){
     const el = q('.autohint'); if (!el) return;
     if (!sg || f.catManual){ el.innerHTML = ''; return; }
     const c = S.cats.find(x => x.name === sg.cat && x.type === f.type) || {seal:sg.cat.charAt(0), color:'#777'};
-    el.innerHTML = `<span class="seal fill" style="--c:${c.color}">${esc(c.seal)}</span>自動分類為 <b>${esc(sg.cat)}${sg.sub ? '／' + esc(sg.sub) : ''}</b><span class="tiny">　不對就點下面的分類改</span>`;
+    el.innerHTML = `<span class="seal fill" style="--c:${c.color}">${esc(c.seal)}</span>自動分類為 <b>${esc(sg.cat)}${sg.sub ? '／' + esc(sg.sub) : ''}</b>${sg.tag ? `，標籤 <b>${esc(sg.tag)}</b>` : ''}<span class="tiny">　不對就點下面的分類改</span>`;
   }
   let autoT;
   q('.item').addEventListener('input', () => {
@@ -917,7 +920,9 @@ function mountForm(root, rec, {mode, onSaved}){
     autoT = setTimeout(() => {
       if (f.catManual || f.project) return;
       const sg = suggestCat(q('.item').value, f.type);
-      if (sg){ f.cat = sg.cat; f.sub = sg.sub; f.autoCat = true; paintCats(); hint(sg); }
+      if (sg){ f.cat = sg.cat; f.sub = sg.sub; f.autoCat = true; paintCats(); hint(sg);
+        const tg = q('.tags'); const cur = tg.value.split(/[,，\s]+/).filter(Boolean).filter(t => t !== f.autoTag);
+        f.autoTag = sg.tag || ''; if (sg.tag && !cur.includes(sg.tag)) cur.push(sg.tag); tg.value = cur.join(','); }
       else if (f.autoCat){ f.cat = ''; f.sub = ''; f.autoCat = false; paintCats(); hint(); }   // 先前是自動選的，現在對不上就清掉
     }, 220);
   });
@@ -937,7 +942,7 @@ function mountForm(root, rec, {mode, onSaved}){
       const tmp = {...out, id:'tmp' + Date.now(), src:'App', created:''};
       S.records.push(tmp); stampIt(); afterChange();
       toast(`已記入　${out.item || out.sub || out.cat}　${fmt(v, out.cur)}`, {action:'撤銷', onAction: () => removeRecord(tmp, true)});
-      amt.value = ''; q('.item').value = ''; q('.note').value = ''; q('.tags').value = ''; q('.spread').value = 1; f.sub = ''; f.cat = '';
+      amt.value = ''; q('.item').value = ''; q('.note').value = ''; q('.tags').value = ''; q('.spread').value = 1; f.sub = ''; f.cat = ''; f.autoTag = '';
       q('.date').value = S.today; f.catManual = false; f.autoCat = false; hint(); paintCats(); paintTpl(); paintConv(); amt.focus();
       try { const saved = await call('api_addRecord', out); Object.assign(tmp, saved); afterChange(); }
       catch(e){ S.records = S.records.filter(r => r !== tmp); afterChange(); fail(e); }
@@ -1239,7 +1244,7 @@ function drawCats(X){
  *  年度預算
  * ===================================================================== */
 const DEFAULT_BUDGET = [
-  {group:'生活費', name:'吃飯', amount:4500, period:'月', map:'餐飲/早餐,餐飲/午餐,餐飲/晚餐,餐飲/咖啡茶飲,餐飲/外賣,餐飲/買菜零食'},
+  {group:'生活費', name:'吃飯', amount:4500, period:'月', map:'餐飲/早餐,餐飲/午餐,餐飲/晚餐,餐飲/咖啡茶飲,餐飲/買菜零食'},
   {group:'生活費', name:'交通', amount:3000, period:'月', map:'交通'},
   {group:'生活費', name:'聚會', amount:2500, period:'月', map:'餐飲/聚餐請客,旅遊娛樂/演出展覽,旅遊娛樂/電影遊戲'},
   {group:'生活費', name:'小購物', amount:1500, period:'月', map:'購物/服飾鞋包,購物/配件眼鏡,購物/其他購物,居住/日用品'},
