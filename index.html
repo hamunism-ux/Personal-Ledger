@@ -24,7 +24,7 @@
   --serif:"Noto Serif TC","Songti TC","STSong",serif;
   --sans:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
   --r-sm:4px; --r-md:8px;
-  --tab-h:58px;
+  --tab-h:52px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark){
@@ -45,8 +45,8 @@ button{cursor:pointer}
 
 /* ---------- header: the ledger's cloth cover */
 .top{position:sticky;top:0;z-index:20;background:var(--cover);color:var(--cover-ink);
-  padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;display:flex;align-items:center;gap:12px}
-.brand{font-family:var(--serif);font-weight:700;font-size:20px;letter-spacing:.18em;margin:0}
+  padding:calc(env(safe-area-inset-top) + 6px) 16px 6px;display:flex;align-items:center;gap:12px}
+.brand{font-family:var(--serif);font-weight:700;font-size:18px;letter-spacing:.18em;margin:0;line-height:1.2}
 .brand small{display:block;font-family:var(--num);font-weight:400;font-size:11px;letter-spacing:.08em;opacity:.65;margin-top:-2px}
 .top .spacer{flex:1}
 .curswitch{display:flex;border:1px solid rgba(233,236,226,.35);border-radius:999px;padding:2px}
@@ -55,7 +55,7 @@ button{cursor:pointer}
 .iconbtn{background:none;border:0;color:inherit;padding:6px;border-radius:6px;display:grid;place-items:center}
 .iconbtn svg{width:20px;height:20px}
 
-main{max-width:760px;margin:0 auto;padding:14px 16px 0}
+main{max-width:760px;margin:0 auto;padding:8px 16px 0}
 .view{display:none}
 .view.on{display:block}
 h2.vt{font-family:var(--serif);font-weight:700;font-size:19px;margin:6px 0 12px;letter-spacing:.06em}
@@ -78,14 +78,15 @@ h2.vt{font-family:var(--serif);font-weight:700;font-size:19px;margin:6px 0 12px;
 .seg.type button[data-v="補貼"][aria-pressed="true"]{background:var(--plus)}
 .chip{border:1px solid var(--rule);background:var(--card);border-radius:999px;padding:4px 11px;font-size:13px;color:var(--ink);white-space:nowrap}
 .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--card)}
-.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip.tpl{border-color:var(--ink-2);font-weight:500}
 .chip.tpl .ok{color:var(--plus);margin-left:5px;font-size:12px;font-weight:400}
 .chip.tpl.done{border-style:dashed;color:var(--ink-2)}
-.field{margin:14px 0 0}
-.field>label,.flabel{display:block;font-size:14px;color:var(--ink-2);margin-bottom:7px;letter-spacing:.04em}
-.input,select.input,textarea.input{width:100%;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:9px 11px;font-size:15px;min-height:42px}
+.field{margin:10px 0 0}
+.field>label,.flabel{display:block;font-size:13px;color:var(--ink-2);margin-bottom:4px;letter-spacing:.04em}
+.inl{display:flex;align-items:center;gap:8px}.inl>.flabel{margin:0;flex:none;white-space:nowrap}.inl>.chips{flex:1;min-width:0;padding:2px 0}
+.input,select.input,textarea.input{width:100%;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:8px 11px;font-size:15px;min-height:40px}
 textarea.input{min-height:64px;resize:vertical}
 .input:focus{border-color:var(--ink-2);outline:none}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -105,18 +106,18 @@ textarea.input{min-height:64px;resize:vertical}
 
 /* ---------- add form */
 .form-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.book{max-width:58%;min-height:36px;padding:5px 10px;font-size:14px}
-.amountbox{position:relative;margin-top:12px;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:12px 14px 10px}
+.book{max-width:46%;min-height:34px;padding:4px 8px;font-size:13px}
+.amountbox{position:relative;margin-top:8px;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:8px 14px 8px}
 .amt-line{display:flex;align-items:baseline;gap:8px}
 .amt-sym{font-family:var(--num);font-size:26px;color:var(--ink-2);min-width:1.4em}
-.amt-in{flex:1;min-width:0;border:0;background:transparent;font-family:var(--num);font-feature-settings:"lnum" 1,"tnum" 1;font-size:40px;font-weight:500;padding:0;outline:none;color:var(--ink)}
+.amt-in{flex:1;min-width:0;border:0;background:transparent;font-family:var(--num);font-feature-settings:"lnum" 1,"tnum" 1;font-size:34px;font-weight:500;padding:0;outline:none;color:var(--ink)}
 .amt-in::placeholder{color:var(--ink-3)}
 .typeplus .amt-in{color:var(--plus)}
-.amt-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px -14px 0;padding:10px 14px 0;border-top:1px solid var(--rule-soft);min-height:30px}
+.amt-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px -14px 0;padding:6px 14px 0;border-top:1px solid var(--rule-soft);min-height:26px}
 .amt-conv{font-family:var(--num);font-size:14px;color:var(--ink-2)}
 .curseg button{padding:3px 10px;font-family:var(--num);font-size:13px}
 .qsave{flex:none;align-self:center;border:0;background:var(--ink);color:var(--card);font-family:var(--serif);font-size:16px;letter-spacing:.14em;
-  height:46px;padding:0 18px;border-radius:var(--r-md)}
+  height:42px;padding:0 16px;border-radius:var(--r-md)}
 .qsave:active{transform:scale(.96)}
 .typeplus .qsave{background:var(--plus)}
 .stamp{position:absolute;right:104px;top:10px;width:58px;height:58px;border:2.5px solid var(--seal);color:var(--seal);border-radius:6px;
@@ -125,35 +126,37 @@ textarea.input{min-height:64px;resize:vertical}
 @keyframes stamp{0%{opacity:0;transform:scale(1.6) rotate(-9deg)}18%{opacity:.95;transform:scale(1) rotate(-9deg)}70%{opacity:.9}100%{opacity:0;transform:scale(1) rotate(-9deg)}}
 @media (prefers-reduced-motion: reduce){.stamp.go{animation:fade 1.2s linear}@keyframes fade{0%,70%{opacity:.9}100%{opacity:0}}}
 
-.itemfield{margin-top:12px}
-.autohint{display:flex;align-items:center;gap:6px;min-height:0;font-size:13px;color:var(--ink-2);margin-top:6px}
+.itemfield{margin-top:8px}
+.autohint{display:flex;align-items:center;gap:6px;min-height:0;font-size:12px;color:var(--ink-2);margin-top:4px}
 .autohint:empty{display:none}
 .autohint .seal{width:20px;height:20px;font-size:12px;border-width:1px}
 .autohint b{font-weight:600;color:var(--ink)}
-.catpanel{margin-top:18px;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:2px 12px 12px}
-.catpanel>.field:first-child{margin-top:10px}
-.catpanel .subwrap{margin-top:10px;padding-top:10px;border-top:1px dashed var(--rule)}
+.catpanel{margin-top:10px;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:2px 10px 8px}
+.catpanel>.field:first-child{margin-top:6px}
+.catpanel .subwrap{margin-top:6px;padding-top:6px;border-top:1px dashed var(--rule)}
 .subs .chip{background:transparent}
 .subs .chip[aria-pressed="true"]{background:transparent;border-color:var(--c);color:var(--c);font-weight:600;box-shadow:inset 0 0 0 1px var(--c)}
-.catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px}
-.cat{background:none;border:0;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:4px;border-radius:var(--r-md);font-size:12px;color:var(--ink-2)}
-.cat .seal{width:38px;height:38px;font-size:19px}
+.catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:2px 4px}
+.cat{background:none;border:0;padding:3px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:var(--r-md);font-size:11px;color:var(--ink-2)}
+.cat .seal{width:32px;height:32px;font-size:16px}
 .cat[aria-pressed="true"]{color:var(--ink);font-weight:600}
 .cat[aria-pressed="true"] .seal{background:var(--c);color:var(--card)}
-.datebar{display:flex;gap:8px;align-items:center}
-.datebar .input{flex:1}
-details.more{margin-top:12px;border-top:1px dashed var(--rule);padding-top:8px}
+.datebar{display:flex;gap:6px;align-items:center;min-width:0}
+.datebar .input{flex:1;min-width:0;padding:6px 8px;min-height:36px;font-size:14px}
+.datebar .chip{padding:4px 9px;font-size:12px}
+details.more{margin-top:8px;border-top:1px dashed var(--rule);padding-top:6px}
 details.more summary{cursor:pointer;color:var(--ink-2);font-size:13px;list-style:none}
 details.more summary::-webkit-details-marker{display:none}
 details.more summary::before{content:"＋ "}
 details.more[open] summary::before{content:"－ "}
-.savebar{margin-top:16px;display:flex;gap:10px}
+.savebar{margin-top:10px;display:flex;gap:10px}
 .savebar .btn{flex:1}
 .formerr{color:var(--seal);font-size:13px;min-height:20px;margin-top:8px}
 .todaybox{margin-top:22px}
 .sum-line{display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px double var(--rule);padding-bottom:4px;margin-bottom:2px}
 .sum-line .num{font-size:18px}
-.monthstrip{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin:-2px 0 6px}
+.monthstrip{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin:0}
+.todaystrip{flex:1;display:inline-flex;justify-content:center;align-items:baseline;gap:5px;white-space:nowrap}
 .monthstrip b{font-family:var(--num);font-weight:600;color:var(--ink);font-size:15px}
 
 /* ---------- ledger rows */
@@ -310,8 +313,8 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 .toast span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .toast button{flex:none;white-space:nowrap;background:none;border:0;color:var(--card);text-decoration:underline;padding:0;font-size:14px}
 .toast.err{background:var(--seal)}
-.askbar{background:var(--cover);padding:0 16px 10px}
-.askfield{width:100%;max-width:728px;margin:0 auto;display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:999px;
+.askbar{background:var(--cover);padding:0 16px 7px}
+.askfield{width:100%;max-width:728px;margin:0 auto;display:flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;
   border:1px solid rgba(233,236,226,.18);background:rgba(233,236,226,.08);color:var(--cover-ink);font-size:13px;text-align:left}
 .askfield span{opacity:.62;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .askfield svg{width:15px;height:15px;flex:none;opacity:.75}
@@ -335,7 +338,7 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="23e5030f">
+<meta name="app-version" content="f7d64b37">
 </head>
 <body>
 <header class="top">
@@ -737,6 +740,7 @@ function mountForm(root, rec, {mode, onSaved}){
       <div class="seg type" role="group" aria-label="類型">
         <button data-v="支出">支出</button><button data-v="補貼">補貼</button>
       </div>
+      ${mode === 'add' ? `<span class="todaystrip monthstrip"></span>` : ''}
       <select class="input book" aria-label="帳本">
         <option value="">常規帳</option>
         ${active.map(p => `<option value="${esc(p.name)}">專項：${esc(p.name)}</option>`).join('')}
@@ -754,17 +758,17 @@ function mountForm(root, rec, {mode, onSaved}){
       </div>
       <div class="stamp" aria-hidden="true">已記</div>
     </div>
-    <div class="field itemfield"><label>買了什麼</label><input class="input item" list="dl-items" placeholder="例如：拿鐵、打車回家、超市" autocomplete="off"><datalist id="dl-items"></datalist>
+    <div class="field itemfield"><input class="input item" list="dl-items" placeholder="買了什麼？例如：拿鐵、打車回家、超市" aria-label="買了什麼" autocomplete="off"><datalist id="dl-items"></datalist>
       <div class="autohint" aria-live="polite"></div></div>
-    ${mode === 'add' ? `<div class="field"><span class="flabel">常用快選</span><div class="chips quick"></div></div>` : ''}
+    ${mode === 'add' ? `<div class="field inl"><span class="flabel">常用</span><div class="chips quick"></div></div>` : ''}
     <div class="catpanel">
       <div class="field"><span class="flabel cat-label">分類</span><div class="catgrid"></div></div>
       <div class="field subwrap"><span class="flabel">子分類</span><div class="chips subs"></div></div>
     </div>
-    <div class="field"><span class="flabel">日期</span>
-      <div class="datebar"><input class="input date" type="date"><button class="chip" data-d="0">今天</button><button class="chip" data-d="-1">昨天</button><button class="chip" data-d="-2">前天</button></div>
+    <div class="field inl"><span class="flabel">日期</span>
+      <div class="datebar" style="flex:1"><input class="input date" type="date"><button class="chip" data-d="0">今天</button><button class="chip" data-d="-1">昨天</button><button class="chip" data-d="-2">前天</button></div>
     </div>
-    ${mode === 'add' ? `<div class="field tplwrap"><span class="flabel">每月固定帶入</span><div class="chips tpls"></div></div>` : ''}
+    ${mode === 'add' ? `<div class="field inl tplwrap"><span class="flabel">每月固定</span><div class="chips tpls"></div></div>` : ''}
     <details class="more">
       <summary>攤提、標籤、備註</summary>
       <div class="row2 field">
@@ -974,7 +978,7 @@ let addForm;
 function renderAdd(){
   const v = $('#v-add');
   if (!v.dataset.mounted){
-    v.innerHTML = `<div class="monthstrip" id="addStrip"></div><div id="addForm"></div>`;
+    v.innerHTML = `<div id="addForm"></div>`;
     addForm = mountForm($('#addForm'), blankRec(), {mode:'add'});
     v.dataset.mounted = 1;
   }
@@ -984,7 +988,7 @@ function renderAddSide(){
   const m = ym(S.today), reg = S.records.filter(r => !r.project);
   let mExp = 0, mSub = 0, tExp = 0;
   reg.forEach(r => { if (ym(r.date) !== m) return; const x = val(r); if (r.type === '補貼') mSub += x; else { mExp += x; if (r.date === S.today) tExp += x; } });
-  $('#addStrip').innerHTML = `<span>今天 <b>${fmt(tExp)}</b></span>`;
+  const strip = $('#v-add .todaystrip'); if (strip) strip.innerHTML = `<span>今天</span><b>${fmt(tExp)}</b>`;
 }
 
 /* =====================================================================
