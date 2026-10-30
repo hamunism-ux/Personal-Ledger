@@ -336,13 +336,14 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 .askrow textarea{flex:1;min-height:42px;max-height:120px;resize:none}
 .askrow .btn{padding:10px 16px}
 .brand small.pending{color:#E8C27A;opacity:1}.brand small.busy{opacity:.9}
+body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, body.agent #pedit, body.agent #ssave, body.agent #srate, body.agent .askbar{display:none !important}
 .setupbox{max-width:420px;margin:30px auto 0;padding:0 4px}
 .setupbox h3{font-family:var(--serif);font-size:18px;margin:0 0 6px;letter-spacing:.06em}
 .loading{padding:80px 0;text-align:center;font-family:var(--serif);color:var(--ink-2);letter-spacing:.2em}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="fc78b5af">
+<meta name="app-version" content="9ebac111">
 </head>
 <body>
 <header class="top">
@@ -496,6 +497,7 @@ function paintSync(){
   const n = Net.outbox.length;
   let t = 'Personal Ledger', cls = '';
   if (!Net.cfg) t = '尚未連線';
+  else if (Net.cfg.scope === 'agent' && !Net.syncing && !n && !Net.lastErr) t = 'Agent 受限模式';
   else if (Net.syncing) { t = n ? `同步中…（${n} 筆）` : '同步中…'; cls = 'busy'; }
   else if (n) { t = `${n} 筆待同步`; cls = 'pending'; }
   else if (Net.lastErr) { t = navigator.onLine ? '同步失敗，稍後再試' : '離線，連線後自動同步'; cls = 'pending'; }
@@ -519,8 +521,9 @@ function openConnect(first){
       if (token.length < 20){ $('#cfgErr', body).textContent = '密鑰太短，請從 Settings 分頁完整複製'; return; }
       $('#cfgGo', body).disabled = true; $('#cfgErr', body).textContent = '連線中…';
       const prev = Net.cfg; Net.cfg = { url, token };
-      try { await api('api_ping', [], 20000); LS.set('cfg', Net.cfg); if (prev && prev.url !== url){ Net.cache = null; LS.del('cache'); }
-        if (!first) closeSheet(); toast('已連線'); boot(true); }
+      try { const w = await api('api_whoami', [], 20000); Net.cfg.scope = (w.result && w.result.scope) || 'full'; LS.set('cfg', Net.cfg);
+        if (prev && prev.url !== url){ Net.cache = null; LS.del('cache'); }
+        if (!first) closeSheet(); toast(Net.cfg.scope === 'agent' ? '已連線（Agent 受限模式）' : '已連線'); boot(true); }
       catch(e){ Net.cfg = prev; $('#cfgGo', body).disabled = false; $('#cfgErr', body).textContent = e.message || String(e); }
     };
     $('#cfgGo', body).onclick = go;
@@ -530,6 +533,24 @@ function openConnect(first){
   if (first){ const box = $('#loading'); box.hidden = false; box.className = 'setupbox'; box.innerHTML = html; mount(box); }
   else openSheet(html, mount);
 }
+
+/* ---------- 連結自動連線：#api=<部署ID>&key=<密鑰>（給 AI Agent 用，打開就連上） */
+(function autoConnectFromHash(){
+  const m = location.hash.match(/^#(.+)$/); if (!m) return;
+  const q = new URLSearchParams(m[1]); const id = q.get('api'), key = q.get('key'), url = q.get('url');
+  const u = url || (id ? `https://script.google.com/macros/s/${id}/exec` : '');
+  if (!u || !key) return;
+  history.replaceState(null, '', location.pathname + location.search);   // 立刻把密鑰從網址列拿掉
+  Net.pendingCfg = { url: u, token: key };
+})();
+async function applyPendingCfg(){
+  const c = Net.pendingCfg; Net.pendingCfg = null; if (!c) return false;
+  const prev = Net.cfg; Net.cfg = c;
+  try { const w = await api('api_whoami', [], 20000); Net.cfg.scope = (w.result && w.result.scope) || 'full'; LS.set('cfg', Net.cfg);
+    if (!prev || prev.url !== c.url || prev.token !== c.token){ Net.cache = null; LS.del('cache'); Net.outbox = []; saveOutbox(); } return true; }
+  catch(e){ Net.cfg = prev; toast('連結裡的密鑰無法連線：' + (e.message || e), { err: true }); return false; }
+}
+function applyScopeUI(){ document.body.classList.toggle('agent', !!(Net.cfg && Net.cfg.scope === 'agent')); }
 
 /* ---------- Service worker：App 殼快取在手機裡，有新版時提示 */
 if ('serviceWorker' in navigator){
@@ -1734,6 +1755,8 @@ function applyData(d){
   buildRates(); remountForms();
 }
 async function boot(fresh){
+  if (Net.pendingCfg){ const ok = await applyPendingCfg(); if (ok) fresh = true; }
+  applyScopeUI();
   if (!Net.cfg){ openConnect(true); paintSync(); return; }
   const box = $('#loading'); box.className = 'loading'; box.textContent = '翻開帳簿……';
   if (!Net.cache || fresh) box.hidden = false;
