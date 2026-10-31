@@ -164,15 +164,22 @@ details.more[open] summary::before{content:"－ "}
 .modeseg button{padding:7px 16px;font-family:var(--serif);letter-spacing:.08em}
 #v-add[data-mode="ai"] #addForm{display:none}
 #v-add[data-mode="manual"] .aibox{display:none}
-.aibox{margin-bottom:10px}
-.aibox .aitext{width:100%;min-height:92px;max-height:180px;resize:none;line-height:1.55;padding:12px 14px;font-size:16px}
-.airow{display:flex;gap:8px;align-items:stretch;margin-top:8px}
-.micbtn{flex:none;height:44px;padding:0 16px;border:1px solid var(--rule);background:var(--card);border-radius:var(--r-md);color:var(--ink-2);display:inline-flex;align-items:center;gap:6px;font-size:14px}
-.micbtn svg{width:20px;height:20px}
-.micbtn.on{color:var(--card);background:var(--seal);border-color:var(--seal)}
-.airow .aigo{flex:1;padding:0 14px;font-size:15px;letter-spacing:.14em}
-.aitip{margin:8px 2px 0}
-.aipreview:not([hidden]) ~ .aitip{display:none}
+.aibox{margin-bottom:10px;background:var(--cover);color:var(--cover-ink);border-radius:12px;padding:12px}
+.aibox .aitext{width:100%;min-height:96px;max-height:200px;resize:none;line-height:1.6;padding:12px 14px;font-size:17px;background:rgba(233,236,226,.07);border:1px solid rgba(233,236,226,.22);color:var(--cover-ink);border-radius:10px}
+.aibox .aitext::placeholder{color:rgba(233,236,226,.45)}
+.aibox .aitext:focus{border-color:rgba(233,236,226,.6);outline:none}
+.airow{display:flex;gap:8px;align-items:stretch;margin-top:10px}
+.aicur{border-color:rgba(233,236,226,.28);background:transparent;flex:none}
+.aicur button{color:rgba(233,236,226,.7);font-family:var(--num);font-size:13px;padding:0 11px;height:42px;border-left-color:rgba(233,236,226,.2) !important}
+.aicur button[aria-pressed="true"]{background:var(--cover-ink);color:var(--cover)}
+.micbtn{flex:none;width:46px;height:44px;border:1px solid rgba(233,236,226,.3);background:transparent;border-radius:10px;color:var(--cover-ink);display:grid;place-items:center}
+.micbtn svg{width:21px;height:21px}
+.micbtn.on{color:var(--card);background:var(--seal);border-color:var(--seal);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(184,55,42,.25)}}
+.airow .aigo{flex:1;padding:0 14px;font-size:15px;letter-spacing:.2em;background:var(--seal);border-color:var(--seal);color:#fff;border-radius:10px}
+.aibox .aipreview{background:var(--card);color:var(--ink);border:0;margin-top:10px;border-radius:10px}
+.aibox .aipreview .pact .linkbtn{color:var(--ink-2)}
+@media (prefers-color-scheme: light){.modeseg button[data-m="ai"][aria-pressed="true"]{background:var(--cover)}}
 .airow .aigo.busy{opacity:.6}
 .aipreview{margin-top:8px;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:4px 10px 10px}
 .aipreview .ph{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink-3);padding:4px 0 2px}
@@ -371,7 +378,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="5badebd6">
+<meta name="app-version" content="7072eca7">
 </head>
 <body>
 <header class="top">
@@ -385,7 +392,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 
 <div class="askbar"><button class="askfield" id="askOpen" type="button" aria-label="問帳本">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
-  <span>問帳本：最近哪裡花多了？</span></button></div>
+  <span>問帳本</span></button></div>
 <main id="app">
   <div class="loading" id="loading">翻開帳簿……</div>
   <section class="view" id="v-add" aria-label="記一筆"></section>
@@ -1079,13 +1086,13 @@ function renderAdd(){
       <span class="monthstrip todaystrip2"></span>
     </div>
     <div class="aibox">
-      <textarea class="input aitext" rows="3" enterkeyhint="go" placeholder="說一句話或打幾個字，例如：&#10;早餐豆漿 8 塊、打車回家 32&#10;昨天美團 45"></textarea>
+      <textarea class="input aitext" rows="3" enterkeyhint="go" placeholder="說一句話，或打幾個字"></textarea>
       <div class="airow">
-        <button class="micbtn" type="button" aria-label="語音輸入"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg><span>語音</span></button>
+        <div class="seg aicur" role="group" aria-label="幣別"><button data-c="CNY">CNY</button><button data-c="TWD">TWD</button><button data-c="USD">USD</button></div>
+        <button class="micbtn" type="button" aria-label="語音輸入"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg></button>
         <button class="btn aigo" type="button">解析</button>
       </div>
       <div class="aipreview" hidden></div>
-      <p class="tiny muted aitip">解析後會列出每一筆讓你確認；點一行可以切到手動修改。</p>
     </div><div id="addForm"></div>`;
     addForm = mountForm($('#addForm'), blankRec(), {mode:'add'});
     mountAIBox(v);
@@ -1140,6 +1147,10 @@ S.ai = { items: [], src: '' };
 const isAgentMode = () => !!(typeof Net !== 'undefined' && Net.cfg && Net.cfg.scope === 'agent');
 function mountAIBox(v){
   const ta = $('.aitext', v), go = $('.aigo', v), mic = $('.micbtn', v), pv = $('.aipreview', v);
+  S.ai.cur = S.settings['預設幣別'] || 'CNY';
+  const paintCur = () => $$('.aicur button', v).forEach(b => b.setAttribute('aria-pressed', b.dataset.c === S.ai.cur));
+  $$('.aicur button', v).forEach(b => b.onclick = () => { S.ai.cur = b.dataset.c; paintCur(); S.ai.items.forEach(r => { r.cur = S.ai.cur; }); paint(); });
+  paintCur();
   ta.oninput = () => { ta.style.height = 'auto'; ta.style.height = Math.min(96, ta.scrollHeight) + 'px'; };
   ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); run(); } };
   go.onclick = () => run();
@@ -1147,7 +1158,7 @@ function mountAIBox(v){
     const L = S.ai.items;
     if (!L.length){ pv.hidden = true; pv.innerHTML = ''; return; }
     pv.hidden = false;
-    pv.innerHTML = `<div class="ph"><span>${S.ai.src === 'ai' ? 'AI 解析' : '解析結果'}　點一行可改</span><span>${L.length} 筆</span></div>` +
+    pv.innerHTML = `<div class="ph"><span>${S.ai.src === 'ai' ? 'AI' : ''}</span><span>${L.length} 筆</span></div>` +
       L.map((r, i) => { const c = catInfo(r); const plus = r.type === '補貼';
         return `<div class="prow2${plus ? ' plus' : ''}"><button class="bd" data-edit="${i}"><span style="--c:${c.color};display:contents">${catIcon(c.name, c.seal, 'sm' + (plus ? ' fill' : ''))}</span>
           <span style="min-width:0"><div class="t">${esc(r.item || r.sub || r.cat || '（未命名）')}</div><div class="m">${esc(r.cat || '未分類')}${r.sub ? '／' + esc(r.sub) : ''}${r.date !== S.today ? '　' + r.date.slice(5).replace('-', '/') : ''}${r.tags ? '　#' + esc(r.tags) : ''}${r.project ? '　' + esc(r.project) : ''}</div></span></button>
@@ -1171,13 +1182,15 @@ function mountAIBox(v){
   };
   async function run(forceAI){
     const text = ta.value.trim(); if (!text) { ta.focus(); return; }
-    let items = forceAI ? [] : parseLocal(text);
+    const explicit = /台幣|臺幣|NT\$?|TWD|美金|美元|USD|US\$|人民幣|RMB|CNY/i.test(text);
+    const applyCur = L => { L.forEach(r => { if (!explicit) r.cur = S.ai.cur; }); return L; };
+    let items = forceAI ? [] : applyCur(parseLocal(text));
     const complete = items.length && items.every(r => r.amount > 0 && r.cat);
     if (!forceAI && complete){ S.ai.items = items; S.ai.src = 'local'; paint(); return; }
     if (isAgentMode()){ S.ai.items = items; S.ai.src = 'local'; paint(); if (!complete) toast('有幾筆沒解析出來，點一下補齊', { err: true }); return; }
     go.disabled = true; go.classList.add('busy'); go.textContent = 'AI 解析中';
     const t0 = Date.now(), tick = setInterval(() => { const n = Math.round((Date.now() - t0) / 1000); if (n >= 3) go.textContent = `AI 解析中 ${n}s`; }, 1000);
-    try { const r = await call('api_parse', text); S.ai.items = (r || []).map(x => ({ ...x, raw: '' })); S.ai.src = 'ai'; paint();
+    try { const r = await call('api_parse', text, S.ai.cur); S.ai.items = applyCur((r || []).map(x => ({ ...x, raw: '' }))); S.ai.src = 'ai'; paint();
       if (!S.ai.items.length) toast('AI 沒解析出內容，換個說法試試', { err: true }); }
     catch(e){ S.ai.items = items; S.ai.src = 'local'; paint(); toast((e.message || e) + (items.length ? '；先用本機解析的結果' : ''), { err: true }); }
     finally { clearInterval(tick); go.disabled = false; go.classList.remove('busy'); go.textContent = '解析'; }
