@@ -159,6 +159,27 @@ details.more[open] summary::before{content:"－ "}
 .todaybox{margin-top:22px}
 .sum-line{display:flex;justify-content:space-between;align-items:baseline;border-bottom:3px double var(--rule);padding-bottom:4px;margin-bottom:2px}
 .sum-line .num{font-size:18px}
+.aibox{margin-bottom:10px}
+.airow{display:flex;gap:6px;align-items:stretch}
+.airow .aitext{flex:1;min-height:40px;max-height:96px;resize:none;line-height:1.4;padding:9px 11px}
+.micbtn{flex:none;width:40px;border:1px solid var(--rule);background:var(--card);border-radius:var(--r-md);color:var(--ink-2);display:grid;place-items:center}
+.micbtn svg{width:20px;height:20px}
+.micbtn.on{color:var(--card);background:var(--seal);border-color:var(--seal)}
+.airow .aigo{flex:none;padding:0 14px;font-size:14px;letter-spacing:.1em}
+.airow .aigo.busy{opacity:.6}
+.aipreview{margin-top:8px;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:4px 10px 10px}
+.aipreview .ph{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink-3);padding:4px 0 2px}
+.prow2{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--rule-soft)}
+.prow2:last-of-type{border-bottom:0}
+.prow2 .bd{flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;display:flex;align-items:center;gap:8px;color:var(--ink)}
+.prow2 .t{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow2 .m{font-size:11px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow2 .a{font-family:var(--num);font-feature-settings:"lnum" 1,"tnum" 1;font-size:16px;white-space:nowrap}
+.prow2.plus .a{color:var(--plus)}
+.prow2 .x{background:none;border:0;color:var(--ink-3);font-size:18px;padding:0 2px;line-height:1}
+.aipreview .pact{display:flex;gap:8px;margin-top:8px;align-items:center}
+.aipreview .pact .btn{flex:1;padding:9px 12px;font-size:14px}
+.aipreview .pact .linkbtn{flex:none}
 .monthstrip{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin:0}
 .todaystrip{flex:1;display:inline-flex;justify-content:center;align-items:baseline;gap:5px;white-space:nowrap}
 .monthstrip b{font-family:var(--num);font-weight:600;color:var(--ink);font-size:15px}
@@ -343,7 +364,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="9ebac111">
+<meta name="app-version" content="560282c5">
 </head>
 <body>
 <header class="top">
@@ -1003,7 +1024,11 @@ function mountForm(root, rec, {mode, onSaved}){
   }
   function stampIt(){ const s = q('.stamp'); s.classList.remove('go'); void s.offsetWidth; s.classList.add('go'); }
   paintAll();
-  return {focus: () => amt.focus()};
+  return {focus: () => amt.focus(), stamp: stampIt,
+    load(r){ f.type = r.type || '支出'; f.project = r.project || ''; f.cat = r.cat || ''; f.sub = r.sub || ''; f.cur = r.cur || f.cur; f.catManual = true; f.autoCat = false;
+      q('.book').value = f.project; amt.value = r.amount ? String(r.amount) : ''; q('.item').value = r.item || ''; q('.date').value = r.date || S.today;
+      q('.tags').value = r.tags || ''; q('.note').value = r.note || ''; if (r.tags || r.note) q('details.more').open = true;
+      paintType(); paintCur(); paintCats(); hint(); amt.focus(); }};
 }
 
 async function removeRecord(rec, silent){
@@ -1032,8 +1057,16 @@ let addForm;
 function renderAdd(){
   const v = $('#v-add');
   if (!v.dataset.mounted){
-    v.innerHTML = `<div id="addForm"></div>`;
+    v.innerHTML = `<div class="aibox">
+      <div class="airow">
+        <textarea class="input aitext" rows="1" enterkeyhint="go" placeholder="說一句話記帳：早餐豆漿 8 塊、打車回家 32"></textarea>
+        <button class="micbtn" type="button" aria-label="語音輸入"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg></button>
+        <button class="btn aigo" type="button">解析</button>
+      </div>
+      <div class="aipreview" hidden></div>
+    </div><div id="addForm"></div>`;
     addForm = mountForm($('#addForm'), blankRec(), {mode:'add'});
+    mountAIBox(v);
     v.dataset.mounted = 1;
   }
   renderAddSide();
@@ -1043,6 +1076,105 @@ function renderAddSide(){
   let mExp = 0, mSub = 0, tExp = 0;
   reg.forEach(r => { if (ym(r.date) !== m) return; const x = val(r); if (r.type === '補貼') mSub += x; else { mExp += x; if (r.date === S.today) tExp += x; } });
   const strip = $('#v-add .todaystrip'); if (strip) strip.innerHTML = `<span>今天</span><b>${fmt(tExp)}</b>`;
+}
+
+/* =====================================================================
+ *  AI 記帳：一句話 → 多筆紀錄；先用本機規則，解析不完整再問 AI
+ * ===================================================================== */
+const CN_NUM = {零:0,一:1,二:2,兩:2,两:2,三:3,四:4,五:5,六:6,七:7,八:8,九:9,十:10,百:100,千:1000};
+function cnToNum(t){   // 八十五 → 85；兩百三 → 230（粗略）
+  if (!/^[零一二兩两三四五六七八九十百千]+$/.test(t)) return NaN;
+  let total = 0, sec = 0, num = 0;
+  for (const ch of t){ const v = CN_NUM[ch];
+    if (v < 10) num = v; else if (v === 10){ sec += (num || 1) * 10; num = 0; } else { sec += (num || 1) * v; num = 0; } }
+  total = sec + num; if (/^[一二兩两三四五六七八九]?[百千]\D$/.test(t)) total = sec; return total;
+}
+const DATE_WORDS = [[/大前天/, -3], [/前天/, -2], [/昨天|昨日/, -1], [/今天|今日/, 0]];
+function parseLocal(text){
+  const segs = String(text || '').split(/[，,、；;\n]|\s+(?:和|還有|跟|以及)\s+|(?<=\d)\s*(?:和|還有|跟)\s*/).map(x => x.trim()).filter(Boolean);
+  const out = [];
+  for (let seg of segs){
+    let date = S.today;
+    for (const [re, d] of DATE_WORDS) if (re.test(seg)){ date = shiftDay(S.today, d); seg = seg.replace(re, ' '); break; }
+    const md = seg.match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})\s*[日號]?/); if (md && +md[1] <= 12 && +md[2] <= 31){ date = S.today.slice(0, 4) + '-' + String(+md[1]).padStart(2, '0') + '-' + String(+md[2]).padStart(2, '0'); seg = seg.replace(md[0], ' '); }
+    let cur = 'CNY';
+    if (/台幣|臺幣|NT\$?|TWD/i.test(seg)) cur = 'TWD'; else if (/美金|美元|USD|US\$/i.test(seg)) cur = 'USD';
+    let amount = NaN, m = seg.match(/(\d+(?:\.\d+)?)\s*(?:塊錢|塊|元|rmb|人民幣|台幣|臺幣|美金|美元|usd|twd|cny|nt\$?|¥|\$)?/i);
+    if (m){ amount = parseFloat(m[1]); seg = seg.replace(m[0], ' '); }
+    else { const c = seg.match(/([零一二兩两三四五六七八九十百千]{1,6})\s*(?:塊錢|塊|元)/); if (c){ amount = cnToNum(c[1]); seg = seg.replace(c[0], ' '); } }
+    const type = /退款|退回|報銷|报销|返現|返现|補貼|补贴|給我|给我|收到/.test(seg) ? '補貼' : '支出';
+    let item = seg.replace(/人民幣|台幣|臺幣|美金|美元|rmb|usd|twd|cny|nt\$?|¥|\$|花了|花費|買了|买了|付了|用了|的|了/gi, ' ').replace(/\s+/g, ' ').trim();
+    const sg = item ? suggestCat(item, type) : null;
+    out.push({ date, type, cat: sg ? sg.cat : '', sub: sg ? sg.sub : '', item, amount, cur, tags: sg && sg.tag ? sg.tag : '', note: '', project: '', spread: 1, raw: seg });
+  }
+  return out;
+}
+S.ai = { items: [], src: '' };
+const isAgentMode = () => !!(typeof Net !== 'undefined' && Net.cfg && Net.cfg.scope === 'agent');
+function mountAIBox(v){
+  const ta = $('.aitext', v), go = $('.aigo', v), mic = $('.micbtn', v), pv = $('.aipreview', v);
+  ta.oninput = () => { ta.style.height = 'auto'; ta.style.height = Math.min(96, ta.scrollHeight) + 'px'; };
+  ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); run(); } };
+  go.onclick = () => run();
+  const paint = () => {
+    const L = S.ai.items;
+    if (!L.length){ pv.hidden = true; pv.innerHTML = ''; return; }
+    pv.hidden = false;
+    pv.innerHTML = `<div class="ph"><span>${S.ai.src === 'ai' ? 'AI 解析' : '解析結果'}　點一行可改</span><span>${L.length} 筆</span></div>` +
+      L.map((r, i) => { const c = catInfo(r); const plus = r.type === '補貼';
+        return `<div class="prow2${plus ? ' plus' : ''}"><button class="bd" data-edit="${i}"><span style="--c:${c.color};display:contents">${catIcon(c.name, c.seal, 'sm' + (plus ? ' fill' : ''))}</span>
+          <span style="min-width:0"><div class="t">${esc(r.item || r.sub || r.cat || '（未命名）')}</div><div class="m">${esc(r.cat || '未分類')}${r.sub ? '／' + esc(r.sub) : ''}${r.date !== S.today ? '　' + r.date.slice(5).replace('-', '/') : ''}${r.tags ? '　#' + esc(r.tags) : ''}${r.project ? '　' + esc(r.project) : ''}</div></span></button>
+          <span class="a">${plus ? '+' : ''}${fmt(r.amount, r.cur)}</span><button class="x" data-del="${i}" aria-label="移除">×</button></div>`; }).join('') +
+      `<div class="pact"><button class="btn pconfirm">確定記入${L.length > 1 ? `（${L.length} 筆）` : ''}</button>${S.ai.src !== 'ai' && !isAgentMode() ? '<button class="linkbtn pai">改用 AI 解析</button>' : ''}<button class="linkbtn pclear">清除</button></div>`;
+  };
+  pv.onclick = async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.del != null){ S.ai.items.splice(+b.dataset.del, 1); paint(); return; }
+    if (b.dataset.edit != null){ const r = S.ai.items.splice(+b.dataset.edit, 1)[0]; paint(); addForm.load(r); return; }
+    if (b.classList.contains('pclear')){ S.ai.items = []; paint(); return; }
+    if (b.classList.contains('pai')){ await run(true); return; }
+    if (b.classList.contains('pconfirm')){
+      const bad = S.ai.items.find(r => !(r.amount > 0) || !r.cat);
+      if (bad){ toast(!(bad.amount > 0) ? `「${bad.item || bad.raw}」沒有金額，點它補一下` : `「${bad.item}」還沒選分類，點它補一下`, { err: true }); return; }
+      const list = S.ai.items.slice(); S.ai.items = []; paint(); ta.value = ''; ta.style.height = 'auto';
+      for (const r of list){ const { raw, ...rec } = r; await addQuick(rec); }
+      addForm.stamp(); toast(`已記入 ${list.length} 筆`);
+      return;
+    }
+  };
+  async function run(forceAI){
+    const text = ta.value.trim(); if (!text) { ta.focus(); return; }
+    let items = forceAI ? [] : parseLocal(text);
+    const complete = items.length && items.every(r => r.amount > 0 && r.cat);
+    if (!forceAI && complete){ S.ai.items = items; S.ai.src = 'local'; paint(); return; }
+    if (isAgentMode()){ S.ai.items = items; S.ai.src = 'local'; paint(); if (!complete) toast('有幾筆沒解析出來，點一下補齊', { err: true }); return; }
+    go.disabled = true; go.classList.add('busy'); go.textContent = '解析中';
+    try { const r = await call('api_parse', text); S.ai.items = (r || []).map(x => ({ ...x, raw: '' })); S.ai.src = 'ai'; paint();
+      if (!S.ai.items.length) toast('AI 沒解析出內容，換個說法試試', { err: true }); }
+    catch(e){ S.ai.items = items; S.ai.src = 'local'; paint(); toast((e.message || e) + (items.length ? '；先用本機解析的結果' : ''), { err: true }); }
+    finally { go.disabled = false; go.classList.remove('busy'); go.textContent = '解析'; }
+  }
+  // 語音：有 Web Speech 就用，沒有就提示用鍵盤麥克風（iPhone 鍵盤內建聽寫）
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
+  mic.onclick = () => {
+    if (rec){ rec.stop(); return; }
+    if (!SR){ toast('請點鍵盤上的麥克風直接聽寫'); ta.focus(); return; }
+    rec = new SR(); rec.lang = /TW|HK/i.test(navigator.language) ? 'zh-TW' : 'zh-CN'; rec.interimResults = true; rec.continuous = false;
+    let base = ta.value ? ta.value.replace(/\s*$/, '') + ' ' : '';
+    mic.classList.add('on');
+    rec.onresult = ev => { let t = ''; for (const r of ev.results) t += r[0].transcript; ta.value = base + t; ta.oninput(); };
+    rec.onerror = ev => { mic.classList.remove('on'); rec = null; if (ev.error !== 'aborted') toast('語音輸入不可用，請用鍵盤上的麥克風'); ta.focus(); };
+    rec.onend = () => { mic.classList.remove('on'); rec = null; if (ta.value.trim()) run(); };
+    try { rec.start(); } catch(e){ rec = null; mic.classList.remove('on'); toast('請點鍵盤上的麥克風直接聽寫'); ta.focus(); }
+  };
+}
+/* 直接記一筆（不經過表單），跟表單的樂觀寫入一致 */
+async function addQuick(rec){
+  const tmp = { ...rec, id: 'tmp' + Date.now() + Math.random().toString(36).slice(2, 5), src: 'App', created: '' };
+  S.records.push(tmp); afterChange();
+  try { const saved = await call('api_addRecord', rec); Object.assign(tmp, saved); afterChange(); }
+  catch(e){ S.records = S.records.filter(r => r !== tmp); afterChange(); fail(e); }
 }
 
 /* =====================================================================
