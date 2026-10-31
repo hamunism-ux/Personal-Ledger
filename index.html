@@ -364,7 +364,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="66f803e9">
+<meta name="app-version" content="308120bb">
 </head>
 <body>
 <header class="top">
@@ -1102,14 +1102,16 @@ function cnToNum(t){   // 八十五 → 85；兩百三 → 230（粗略）
 }
 const DATE_WORDS = [[/大前天/, -3], [/前天/, -2], [/昨天|昨日/, -1], [/今天|今日/, 0]];
 function parseLocal(text){
-  const segs = String(text || '').split(/[，,、；;\n]|\s+(?:和|還有|跟|以及)\s+|(?<=\d)\s*(?:和|還有|跟)\s*/).map(x => x.trim()).filter(Boolean);
+  // 「皮皮蝦$8燉雞$9」這種沒有分隔符的：在「金額（含單位）」後面接著中文字時切開
+  const pre = String(text || '').replace(/(\d+(?:\.\d+)?\s*(?:塊錢|塊|元|rmb|¥|\$)?)\s*(?![塊元錢])(?=[\u4e00-\u9fff]{1,}(?:[^\d]*\$?\d))/g, '$1，');
+  const segs = pre.split(/[，,、；;\n]|\s+(?:和|還有|跟|以及)\s+|(?<=\d)\s*(?:和|還有|跟)\s*/).map(x => x.trim()).filter(Boolean);
   const out = [];
   for (let seg of segs){
     let date = S.today;
     for (const [re, d] of DATE_WORDS) if (re.test(seg)){ date = shiftDay(S.today, d); seg = seg.replace(re, ' '); break; }
     const md = seg.match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})\s*[日號]?/); if (md && +md[1] <= 12 && +md[2] <= 31){ date = S.today.slice(0, 4) + '-' + String(+md[1]).padStart(2, '0') + '-' + String(+md[2]).padStart(2, '0'); seg = seg.replace(md[0], ' '); }
     let cur = 'CNY';
-    if (/台幣|臺幣|NT\$?|TWD/i.test(seg)) cur = 'TWD'; else if (/美金|美元|USD|US\$/i.test(seg)) cur = 'USD';
+    if (/台幣|臺幣|NT\$?|TWD/i.test(seg)) cur = 'TWD'; else if (/美金|美元|USD|US\$/i.test(seg)) cur = 'USD';   // 單獨的 $ 當人民幣（上海鍵盤常打成 $）
     let amount = NaN, m = seg.match(/(\d+(?:\.\d+)?)\s*(?:塊錢|塊|元|rmb|人民幣|台幣|臺幣|美金|美元|usd|twd|cny|nt\$?|¥|\$)?/i);
     if (m){ amount = parseFloat(m[1]); seg = seg.replace(m[0], ' '); }
     else { const c = seg.match(/([零一二兩两三四五六七八九十百千]{1,6})\s*(?:塊錢|塊|元)/); if (c){ amount = cnToNum(c[1]); seg = seg.replace(c[0], ' '); } }
