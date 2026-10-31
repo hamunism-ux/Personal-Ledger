@@ -364,7 +364,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="db73c16b">
+<meta name="app-version" content="66f803e9">
 </head>
 <body>
 <header class="top">
@@ -575,15 +575,24 @@ async function applyPendingCfg(){
 }
 function applyScopeUI(){ document.body.classList.toggle('agent', !!(Net.cfg && Net.cfg.scope === 'agent')); }
 
-/* ---------- Service worker：App 殼快取在手機裡，有新版時提示 */
+/* ---------- Service worker：App 殼快取在手機裡；剛打開時發現新版就直接換，用到一半才提示 */
+const APP_START = Date.now();
+function userBusy(){ const a = document.querySelector('#v-add .amt-in'), t = document.querySelector('.aitext'); return !!((a && a.value) || (t && t.value) || document.querySelector('#sheet.on')); }
+function offerUpdate(w){
+  if (!w) return;
+  if (Date.now() - APP_START < 6000 && !userBusy()){ w.postMessage('skipWaiting'); return; }   // 剛打開、還沒操作：直接換
+  toast('記帳本有新版本', { action: '更新', onAction: () => w.postMessage('skipWaiting') });
+}
 if ('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw.js').then(reg => {
+    if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
     reg.addEventListener('updatefound', () => {
       const w = reg.installing; if (!w) return;
-      w.addEventListener('statechange', () => {
-        if (w.state === 'installed' && navigator.serviceWorker.controller) toast('記帳本有新版本', { action: '更新', onAction: () => w.postMessage('skipWaiting') });
-      });
+      w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w); });
     });
+    const check = () => reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });   // 從背景回來也檢查
+    setInterval(check, 30 * 60 * 1000);
   }).catch(() => {});
   let reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded){ reloaded = true; location.reload(); } });
