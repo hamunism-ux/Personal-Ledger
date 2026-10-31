@@ -364,7 +364,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="560282c5">
+<meta name="app-version" content="bad57725">
 </head>
 <body>
 <header class="top">
@@ -508,6 +508,8 @@ async function call(fn, ...args){
     case 'api_saveSettings': { const j = await api(fn, args); Net.cache.settings = j.result; adoptRev(j.rev); saveCache(); return j.result; }
     case 'api_refreshRates': { const j = await api(fn, args); Net.cache.rates = j.result.rates; Net.cache.settings = j.result.settings; adoptRev(j.rev); saveCache(); return j.result; }
     case 'api_ask': { const j = await api(fn, args, 120000); return j.result; }
+    case 'api_parse': { const j = await api(fn, args, 60000); return j.result; }
+    case 'api_digest': case 'api_categories': case 'api_whoami': case 'api_ping': { const j = await api(fn, args); return j.result; }
     default: throw new Error('未知的功能 ' + fn);
   }
 }
