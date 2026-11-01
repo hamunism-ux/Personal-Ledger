@@ -174,7 +174,13 @@ details.more[open] summary::before{content:"－ "}
 .micbtn.on{color:var(--card);background:var(--seal);border-color:var(--seal);animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(184,55,42,.25)}}
 .airow .aigo{flex:1;padding:0 14px;font-size:15px;letter-spacing:.2em}
-.airow .aigo.busy{opacity:.6}
+.airow .aigo.busy{opacity:.75;letter-spacing:.1em}
+.dots{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle}
+.dots i{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.3;animation:dot 1.2s ease-in-out infinite}
+.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+@keyframes dot{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+.aibox{position:relative}
+.aibox .stamp{right:14px;top:8px}
 .aipreview{margin-top:8px;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:4px 10px 10px}
 .aipreview .ph{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink-3);padding:4px 0 2px}
 .prow2{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--rule-soft)}
@@ -372,7 +378,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="9aedc5cf">
+<meta name="app-version" content="cc3e4900">
 </head>
 <body>
 <header class="top">
@@ -1110,6 +1116,7 @@ function renderAdd(){
         <button class="btn aigo" type="button">解析</button>
       </div>
       <div class="aipreview" hidden></div>
+      <div class="stamp" aria-hidden="true">已記</div>
     </div><div id="addForm"></div>`;
     addForm = mountForm($('#addForm'), blankRec(), {mode:'add'});
     mountAIBox(v);
@@ -1192,8 +1199,9 @@ function mountAIBox(v){
       const bad = S.ai.items.find(r => !(r.amount > 0) || !r.cat);
       if (bad){ toast(!(bad.amount > 0) ? `「${bad.item || bad.raw}」沒有金額，點它補一下` : `「${bad.item}」還沒選分類，點它補一下`, { err: true }); return; }
       const list = S.ai.items.slice(); S.ai.items = []; paint(); ta.value = ''; ta.style.height = 'auto';
-      for (const r of list){ const { raw, ...rec } = r; await addQuick(rec); }
+      const st = $('.aibox .stamp', v); st.classList.remove('go'); void st.offsetWidth; st.classList.add('go');
       toast(`已記入 ${list.length} 筆`); ta.focus({ preventScroll: true });
+      for (const r of list){ const { raw, ...rec } = r; await addQuick(rec); }
       return;
     }
   };
@@ -1206,12 +1214,11 @@ function mountAIBox(v){
     const complete = items.length && items.every(r => r.amount > 0 && r.cat);
     if (!forceAI && complete){ S.ai.items = items; S.ai.src = 'local'; paint(); return; }
     if (isAgentMode()){ S.ai.items = items; S.ai.src = 'local'; paint(); if (!complete) toast('有幾筆沒解析出來，點一下補齊', { err: true }); return; }
-    go.disabled = true; go.classList.add('busy'); go.textContent = 'AI 解析中';
-    const t0 = Date.now(), tick = setInterval(() => { const n = Math.round((Date.now() - t0) / 1000); if (n >= 3) go.textContent = `AI 解析中 ${n}s`; }, 1000);
+    go.disabled = true; go.classList.add('busy'); go.innerHTML = 'AI 解析中<span class="dots"><i></i><i></i><i></i></span>';
     try { const r = await call('api_parse', text, S.ai.cur, S.today); S.ai.items = applyCur((r || []).map(x => ({ ...x, raw: '' }))); S.ai.src = 'ai'; paint();
       if (!S.ai.items.length) toast('AI 沒解析出內容，換個說法試試', { err: true }); }
     catch(e){ S.ai.items = items; S.ai.src = 'local'; paint(); toast((e.message || e) + (items.length ? '；先用本機解析的結果' : ''), { err: true }); }
-    finally { clearInterval(tick); go.disabled = false; go.classList.remove('busy'); go.textContent = '解析'; }
+    finally { go.disabled = false; go.classList.remove('busy'); go.textContent = '解析'; }
   }
   // 語音：有 Web Speech 就用，沒有就提示用鍵盤麥克風（iPhone 鍵盤內建聽寫）
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
