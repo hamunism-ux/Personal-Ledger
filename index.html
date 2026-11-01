@@ -372,7 +372,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="f2838229">
+<meta name="app-version" content="9aedc5cf">
 </head>
 <body>
 <header class="top">
@@ -1579,7 +1579,8 @@ function drawBudget(){
   }
   const view = year === curY ? S.bud.view : 'y';
   const used = B.tb ? B.ta / B.tb : 0;
-  const proj = view === 'y' && B.pace > 0.08 && B.pace < 1 ? B.ta / B.pace : null;
+  // 全年推估與進度線用同一把尺：實花 ÷ 照時間應花（固定開銷按已過月份、其他按天數），再放大到全年預算
+  const proj = view === 'y' && B.pace > 0.08 && B.pace < 1 && B.te > 0 ? B.ta / B.te * B.tb : null;
   const groups = []; B.rows.forEach(x => { const g = x.l.group || x.l.name; let o = groups.find(z => z.g === g); if (!o){ o = {g, rows:[]}; groups.push(o); } o.rows.push(x); });
   el.innerHTML = `<div class="sec bud">
     <h3>${esc(year)} 年預算${year === curY ? `<div class="seg" id="budView"><button data-v="y" aria-pressed="${view === 'y'}">全年</button><button data-v="m" aria-pressed="${view === 'm'}">本月</button></div>` : ''}</h3>
