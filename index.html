@@ -372,7 +372,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="a0c9a8ee">
+<meta name="app-version" content="f2838229">
 </head>
 <body>
 <header class="top">
@@ -583,28 +583,37 @@ async function applyPendingCfg(){
 }
 function applyScopeUI(){ document.body.classList.toggle('agent', !!(Net.cfg && Net.cfg.scope === 'agent')); }
 
-/* ---------- Service worker：App 殼快取在手機裡；剛打開時發現新版就直接換，用到一半才提示 */
+/* ---------- 版本更新：不靠 service worker 的更新偵測（iPhone 主畫面 App 不可靠），
+ *  自己向 GitHub 查 version.json；版本不同就清掉快取、重新載入 */
 const APP_START = Date.now();
+const APP_VERSION = (document.querySelector('meta[name=app-version]') || {}).content || '';
 function userBusy(){ const a = document.querySelector('#v-add .amt-in'), t = document.querySelector('.aitext'); return !!((a && a.value) || (t && t.value) || document.querySelector('#sheet.on')); }
-function offerUpdate(w){
-  if (!w) return;
-  if (Date.now() - APP_START < 6000 && !userBusy()){ w.postMessage('skipWaiting'); return; }   // 剛打開、還沒操作：直接換
-  toast('記帳本有新版本', { action: '更新', onAction: () => w.postMessage('skipWaiting') });
+let updating = false;
+async function hardUpdate(){
+  if (updating) return; updating = true;
+  try {
+    const keys = await caches.keys(); await Promise.all(keys.filter(k => k.startsWith('ledger-') && k !== 'ledger-fonts').map(k => caches.delete(k)));
+    const reg = await navigator.serviceWorker.getRegistration(); if (reg) await reg.unregister();   // 下次載入會重新安裝新的 sw.js
+  } catch(e){}
+  location.replace(location.pathname + '?v=' + Date.now());   // 帶參數避開任何 HTTP 快取
+}
+let versionPrompted = false;
+async function checkVersion(manual){
+  if (!navigator.onLine) return 'offline';
+  let v = '';
+  try { const r = await fetch('./version.json?_=' + Date.now(), { cache: 'no-store' }); v = (await r.json()).v || ''; } catch(e){ return 'error'; }
+  if (!v || v === APP_VERSION) return 'latest';
+  if (!userBusy() && (manual || Date.now() - APP_START < 8000)){ toast('更新到新版本…'); setTimeout(hardUpdate, 300); return 'updating'; }
+  if (!versionPrompted){ versionPrompted = true; toast('記帳本有新版本', { action: '更新', onAction: hardUpdate }); }
+  return 'available';
 }
 if ('serviceWorker' in navigator){
-  navigator.serviceWorker.register('./sw.js').then(reg => {
-    if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
-    reg.addEventListener('updatefound', () => {
-      const w = reg.installing; if (!w) return;
-      w.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w); });
-    });
-    const check = () => reg.update().catch(() => {});
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });   // 從背景回來也檢查
-    setInterval(check, 30 * 60 * 1000);
-  }).catch(() => {});
-  let reloaded = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded){ reloaded = true; location.reload(); } });
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  setTimeout(() => checkVersion(false), 1200);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - APP_START > 10000) checkVersion(false); });
+  setInterval(() => checkVersion(false), 20 * 60 * 1000);
 }
+if (location.search.indexOf('v=') >= 0) history.replaceState(null, '', location.pathname + location.hash);
 
 /* =====================================================================
  *  State & helpers
@@ -1844,9 +1853,9 @@ function openSettings(){
     $('#sconn', body).onclick = () => openConnect(false);
     $('#supdate', body).onclick = async () => {
       const el = $('#supdate', body); el.textContent = '檢查中…';
-      try { const reg = await navigator.serviceWorker.getRegistration(); if (!reg) throw 0; await reg.update();
-        setTimeout(() => { if (reg.waiting){ el.textContent = '檢查更新'; toast('有新版本', { action: '更新', onAction: () => reg.waiting.postMessage('skipWaiting') }); } else { el.textContent = '已是最新'; } }, 1500); }
-      catch(e){ el.textContent = '檢查更新'; toast('無法檢查更新，請關掉 App 重開', { err: true }); }
+      const r = await checkVersion(true);
+      el.textContent = r === 'latest' ? '已是最新' : r === 'offline' ? '離線' : r === 'error' ? '連不上 GitHub' : '檢查更新';
+      if (r === 'available') toast('記帳本有新版本', { action: '更新', onAction: hardUpdate });
     };
     $('#ssyncnow', body).onclick = async () => { await sync(true); $('#syncState', body).textContent = Net.lastErr ? '同步失敗：' + Net.lastErr : '已同步'; toast(Net.lastErr ? '同步失敗' : '已同步'); };
   });
