@@ -378,7 +378,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="cc3e4900">
+<meta name="app-version" content="6022d23d">
 </head>
 <body>
 <header class="top">
@@ -1087,7 +1087,7 @@ async function removeRecord(rec, silent){
     await wait();
     S.records = S.records.filter(r => r !== gone); afterChange();
   }
-  try { await call('api_deleteRecord', gone.id); if (!silent) toast('已刪除（可在試算表 Trash 分頁找回）'); else toast('已撤銷'); }
+  try { await call('api_deleteRecord', gone.id); if (!silent) toast('已刪除'); else toast('已撤銷'); }
   catch(e){ S.records.push(gone); afterChange(); fail(e); }
 }
 
