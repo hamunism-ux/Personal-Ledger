@@ -321,6 +321,26 @@ svg text{font-family:var(--num);fill:var(--ink-3);font-size:11px}
 .bud .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink-3);margin-top:10px}
 .bud .legend span::before{content:"";display:inline-block;width:10px;height:6px;border-radius:3px;margin-right:4px;vertical-align:middle;background:var(--c)}
 .bud .legend .pace::before{width:2px;height:10px;background:var(--ink)}
+.seg.block{display:flex}.seg.block button{flex:1}
+.btree{margin-top:6px;border:1px solid var(--rule);border-radius:var(--r-md);background:var(--card);padding:4px 10px 8px}
+.bt-g{font-family:var(--serif);font-weight:700;font-size:14px;margin-top:10px;padding-bottom:2px;border-bottom:1px solid var(--rule-soft)}
+.bt-l{padding:7px 0 2px;border-bottom:1px solid var(--rule-soft)}.bt-l:last-child{border-bottom:0}
+.bt-l.in{margin-left:10px;padding-left:10px;border-left:2px solid var(--rule)}
+.bt-n{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}.bt-n .num{font-size:12px;color:var(--ink-3)}
+.bt-c{font-size:12px;color:var(--ink-2);line-height:1.6;padding-left:4.6em;text-indent:-4.6em}
+.bt-c span{display:inline-block;width:4.2em;margin-right:.4em;text-indent:0;color:var(--ink-3)}
+.bt-c.muted{padding-left:0;text-indent:0;color:var(--ink-3)}
+.bt-all{font-size:11px;color:var(--ink-3);margin-top:2px}
+.bt-l.none b,.bm-r.none .nm{color:var(--seal)}
+.bm-warn{margin-top:10px;border:1px solid var(--seal);border-radius:var(--r-md);padding:8px 10px;font-size:12px;color:var(--seal)}
+.bm-cat{display:flex;align-items:center;gap:8px;margin-top:14px;padding-bottom:4px;border-bottom:1px solid var(--rule);font-size:14px}
+.bm-cat small{margin-left:auto;font-family:var(--num);font-size:12px;color:var(--ink-3)}
+.bm-r{display:flex;align-items:center;gap:8px;padding:4px 0 4px 6px;border-bottom:1px solid var(--rule-soft)}
+.bm-r.viaall{background:var(--rule-soft)}
+.bm-r .nm{flex:1;min-width:0;font-size:13px}.bm-r .nm i{font-style:normal;color:var(--ink-3)}
+.bm-r .nm small{display:block;font-family:var(--num);font-size:11px;color:var(--ink-3)}
+.bm-r select.input{width:46%;flex:none;min-height:34px;padding:4px 8px;font-size:13px}
+.bm-r.none select.input{border-color:var(--seal)}
 .bedit{border:1px solid var(--rule);border-radius:var(--r-md);background:var(--card);padding:10px;margin-top:10px}
 .bedit .r1,.bedit .r2{display:flex;gap:8px;align-items:center}
 .bedit .r2{margin-top:8px}
@@ -411,7 +431,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="fd9ff02c">
+<meta name="app-version" content="c215e997">
 </head>
 <body>
 <div class="capfix" aria-hidden="true"></div>
@@ -1763,17 +1783,75 @@ function openBudgetEditor(year){
     if (!src.length){ const prev = [...new Set(S.budgets.map(b => b.year))].filter(x => x < y).sort().pop(); src = prev ? S.budgets.filter(b => b.year === prev) : DEFAULT_BUDGET; }
     return src.map(b => ({group:b.group || '', name:b.name, amount:b.amount, period:b.period, map:b.map, cur:b.cur || 'CNY', fixed:!!b.fixed}));
   };
-  let lines = load(year), openMap = -1;
+  let lines = load(year), openMap = -1, tab = 'lines';
   const cats = S.cats.filter(c => c.type === '支出' && c.name !== '日常彙總');
   const mapText = budMapText;
+  /* ---------- 對應總覽：每個分類／子分類最後會算進哪個預算項目（規則同 budLineOf：子分類 > 整個分類 > 其他未對應） */
+  const canon = l => budTokens(l.map).map(t => t.all ? '*' : t.cat + (t.sub ? '/' + t.sub : ''));
+  const resolve = (cat, sub) => {
+    let i = sub ? lines.findIndex(l => canon(l).includes(cat + '/' + sub)) : -1; if (i >= 0) return {i, how:'sub'};
+    i = lines.findIndex(l => canon(l).includes(cat)); if (i >= 0) return {i, how:'cat'};
+    i = lines.findIndex(l => canon(l).includes('*')); if (i >= 0) return {i, how:'all'};
+    return {i:-1, how:'none'};
+  };
+  const assign = (cat, sub, li) => {
+    const key = sub ? cat + '/' + sub : cat;
+    lines.forEach(l => { l.map = canon(l).filter(t => t !== key).join(','); });
+    if (li >= 0 && resolve(cat, sub).i !== li) lines[li].map = canon(lines[li]).concat([key]).join(',');
+  };
+  // 近 12 個月各分類／子分類花了多少（幫忙判斷哪些值得單獨對應）；紀錄裡出現過、但分類表沒列的子分類也補進來
+  const since = addMonths(ym(S.today), -11) + '-01', spent = {}, extra = {};
+  S.records.forEach(r => { if (r.project || r.type === '補貼' || r.date < since || r.cat === '日常彙總') return;
+    const v = val(r); spent[r.cat] = (spent[r.cat] || 0) + v; spent[r.cat + '/' + (r.sub || '')] = (spent[r.cat + '/' + (r.sub || '')] || 0) + v;
+    const c = cats.find(x => x.name === r.cat); if (c && r.sub && !c.subs.includes(r.sub)) (extra[r.cat] = extra[r.cat] || new Set()).add(r.sub); });
+  const subsOf = c => c.subs.concat(extra[c.name] ? [...extra[c.name]] : []);
+  const lineLabel = l => (l.group && l.group !== l.name ? l.group + '／' : '') + (l.name || '（未命名）');
   openSheet(`<h3>年度預算</h3>
     <div class="row2 field" style="margin-top:8px"><div><label>年度</label><select class="input" id="byear">${yearsOpt.map(y => `<option${y === year ? ' selected' : ''}>${y}</option>`).join('')}</select></div>
       <div><label>全年合計</label><div class="num" id="btot" style="font-size:17px;padding-top:8px;line-height:1.35"></div></div></div>
-    <div class="tiny muted" style="margin-top:6px">金額用人民幣。每筆支出會依「對應分類」歸到項目；想把某筆算進特定項目，在那筆的標籤寫上項目名稱（例如「機動費用」）。標「固定」的項目（房租、社保等月初一次付清）不會提醒「比時間進度快」。同一個群組的項目在統計裡只顯示群組合計。</div>
+    <div class="seg block" id="btab" role="group" aria-label="檢視" style="margin-top:10px"><button data-t="lines">預算項目</button><button data-t="map">對應總覽</button></div>
+    <div id="bpaneLines">
+    <div class="tiny muted" style="margin-top:8px">金額用人民幣。每筆支出會依「對應分類」歸到項目；想把某筆算進特定項目，在那筆的標籤寫上項目名稱（例如「機動費用」）。標「固定」的項目（房租、社保等月初一次付清）不會提醒「比時間進度快」。同一個群組的項目在統計裡只顯示群組合計。</div>
     <div id="blist"></div>
     <button class="btn ghost block" id="badd" style="margin-top:10px">新增項目</button>
+    </div>
+    <div id="bmap" hidden></div>
     <div class="formerr" id="berr"></div>
     <div class="savebar"><button class="btn ghost" id="bcancel">取消</button><button class="btn" id="bsave">儲存預算</button></div>`, body => {
+    const paintMap = () => {
+      const all = lines.findIndex(l => canon(l).includes('*'));
+      // 結構圖：每個預算項目底下實際包含哪些分類／子分類
+      const under = lines.map(() => ({})); const none = {};
+      cats.forEach(c => [''].concat(subsOf(c)).forEach(sb => { const r = resolve(c.name, sb); const box = r.i >= 0 ? under[r.i] : none; (box[c.name] = box[c.name] || []).push({sb, how:r.how}); }));
+      const catText = (box, viaAll) => Object.entries(box).map(([c, xs]) => {
+        const cat = cats.find(x => x.name === c), full = xs.length === subsOf(cat).length + 1;
+        const names = xs.map(x => x.sb || '未選子分類');
+        return `<div class="bt-c"><span>${esc(c)}</span>${full ? '全部' : esc(names.join('、'))}</div>`; }).join('');
+      let lastG = null;
+      const tree = lines.map((l, i) => {
+        const g = l.group || l.name, head = g !== lastG && l.group && l.group !== l.name ? `<div class="bt-g">${esc(g)}</div>` : ''; lastG = g;
+        const has = Object.keys(under[i]).length;
+        return head + `<div class="bt-l${l.group && l.group !== l.name ? ' in' : ''}"><div class="bt-n"><b>${esc(l.name || '（未命名）')}</b><span class="num">¥ ${Math.round(Number(l.amount) || 0).toLocaleString()}／${l.period}</span></div>
+          ${i === all ? '<div class="bt-all">沒有另外指定的，都算在這裡：</div>' : ''}${has ? catText(under[i]) : '<div class="bt-c muted">（沒有對應任何分類；只有標籤寫了這個名稱的紀錄會算進來）</div>'}</div>`; }).join('');
+      const nNone = Object.values(none).reduce((a, xs) => a + xs.length, 0);
+      const opts = sel => lines.map((l, i) => `<option value="${i}"${i === sel ? ' selected' : ''}>${esc(lineLabel(l))}</option>`).join('') + (all < 0 ? `<option value="-1"${sel < 0 ? ' selected' : ''}>不計入預算</option>` : '');
+      const row = (c, sb) => { const r = resolve(c.name, sb), amt = spent[c.name + '/' + sb] || 0;
+        return `<div class="bm-r${r.how === 'none' ? ' none' : r.how === 'all' ? ' viaall' : ''}"><span class="nm">${sb ? esc(sb) : '<i>整個分類／未選子分類</i>'}${amt >= 1 ? `<small>${fmt(amt)}</small>` : ''}</span>
+          <select class="input" data-c="${esc(c.name)}" data-s="${esc(sb)}" aria-label="${esc(c.name + ' ' + sb)} 算進哪個預算項目">${opts(r.i)}</select></div>`; };
+      $('#bmap', body).innerHTML = `
+        ${nNone ? `<div class="bm-warn">有 ${nNone} 個分類／子分類沒有算進任何預算項目（下面標紅的）。把其中一個預算項目的對應加上「其他未對應的支出」，或在下面逐一指定。</div>` : ''}
+        <div class="bd-h" style="margin-top:12px">結構：每個預算項目包含什麼</div>
+        <div class="btree">${tree}${nNone ? `<div class="bt-l none"><div class="bt-n"><b>不計入預算</b></div>${catText(none)}</div>` : ''}</div>
+        <div class="bd-h" style="margin-top:18px">逐一調整<span>右邊小字是近 12 個月的花費</span></div>
+        <div class="tiny muted" style="margin-top:4px">規則：子分類有指定就照子分類，否則照「整個分類」，再沒有就算進${all >= 0 ? `「${esc(lines[all].name)}」` : '「其他未對應的支出」（目前沒有設）'}。底色淺灰的是落在最後這一層的。</div>
+        ${cats.map(c => { const info = catInfo({cat:c.name, type:'支出'});
+          return `<div class="bm-cat" style="--c:${info.color}"><span style="--c:${info.color};display:contents">${catIcon(c.name, info.seal, 'sm')}</span><b>${esc(c.name)}</b>${spent[c.name] >= 1 ? `<small>${fmt(spent[c.name])}</small>` : ''}</div>` +
+            row(c, '') + subsOf(c).map(sb => row(c, sb)).join(''); }).join('')}`;
+    };
+    const paintTab = () => { $$('#btab button', body).forEach(b => b.setAttribute('aria-pressed', b.dataset.t === tab)); $('#bpaneLines', body).hidden = tab !== 'lines'; $('#bmap', body).hidden = tab !== 'map'; };
+    $$('#btab button', body).forEach(b => b.onclick = () => { tab = b.dataset.t; paintTab(); if (tab === 'map') paintMap(); else paint(); });
+    $('#bmap', body).addEventListener('change', e => { const el = e.target; if (el.tagName !== 'SELECT') return;
+      const y = $('#sheet').scrollTop; assign(el.dataset.c, el.dataset.s, +el.value); paintMap(); $('#sheet').scrollTop = y; });
     const paint = () => {
       const tot = lines.reduce((a, l) => a + (Number(l.amount) || 0) * (l.period === '月' ? 12 : 1), 0);
       $('#btot', body).innerHTML = '¥ ' + Math.round(tot).toLocaleString() + '<br><span class="tiny muted">每月約 ¥ ' + Math.round(tot / 12).toLocaleString() + '</span>';
@@ -1804,8 +1882,9 @@ function openBudgetEditor(year){
         lines[i].map = ts.join(','); paint(); return;
       }
     });
-    $('#byear', body).onchange = e => { year = e.target.value; lines = load(year); openMap = -1; paint(); };
+    $('#byear', body).onchange = e => { year = e.target.value; lines = load(year); openMap = -1; paint(); if (tab === 'map') paintMap(); };
     $('#badd', body).onclick = () => { lines.push({group:'', name:'', amount:0, period:'月', map:'', cur:'CNY', fixed:false}); openMap = lines.length - 1; paint(); };
+    paintTab();
     $('#bcancel', body).onclick = closeSheet;
     $('#bsave', body).onclick = async () => {
       const clean = lines.filter(l => String(l.name).trim());
