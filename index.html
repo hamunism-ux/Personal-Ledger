@@ -272,6 +272,7 @@ svg text{font-family:var(--num);fill:var(--ink-3);font-size:11px}
 .bdline .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}
 .bdline .t .num{font-size:14px;white-space:nowrap}.bdline .t small{color:var(--ink-3);font-size:12px}
 .bdline .m{display:block;font-size:12px;color:var(--ink-2);margin-top:2px;line-height:1.5}
+#bdRecs{scroll-margin-top:44px}
 .bdm{font-family:var(--serif);font-size:13px;font-weight:700;color:var(--ink-2);margin:12px 0 0;padding-bottom:3px;border-bottom:1px solid var(--rule)}
 .brow .nm{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brow .bbar{height:5px;margin-top:0}
@@ -352,10 +353,16 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 /* ---------- modal sheet & toast */
 .scrim{position:fixed;inset:0;background:rgba(10,16,20,.45);z-index:50;display:none}
 .scrim.on{display:block}
-.sheet{visibility:hidden;position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--paper);border-radius:14px 14px 0 0;max-height:92vh;overflow:auto;
-  padding:8px 16px calc(20px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .22s ease-out;max-width:760px;margin:0 auto}
+.sheet{visibility:hidden;position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--paper);border-radius:14px 14px 0 0;overflow:auto;overscroll-behavior:contain;
+  /* 上方留一段在狀態列「下面」的空白可以點（狀態列那一條 iOS 會自己吃掉點擊） */
+  max-height:92vh;max-height:calc(100dvh - env(safe-area-inset-top) - 52px);
+  padding:0 16px calc(20px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .22s ease-out;max-width:760px;margin:0 auto}
 .sheet.on{transform:none;visibility:visible}
-.sheet .grab{width:40px;height:4px;border-radius:2px;background:var(--rule);margin:2px auto 8px}
+.sheetbar{position:sticky;top:0;z-index:3;height:40px;margin:0 -16px;background:var(--paper);border-radius:14px 14px 0 0;display:flex;align-items:center;justify-content:center;touch-action:none}
+.sheet .grab{width:44px;height:5px;border-radius:3px;background:var(--rule)}
+.sheetx{position:absolute;right:6px;top:0;width:44px;height:40px;border:0;background:none;color:var(--ink-2);display:grid;place-items:center;padding:0}
+.sheetx svg{width:26px;height:26px;padding:6px;border-radius:50%;background:var(--rule-soft)}
+.sheetx:active svg{background:var(--rule)}
 .sheet h3{font-family:var(--serif);font-size:17px;margin:0 0 4px;letter-spacing:.06em}
 @media (prefers-reduced-motion: reduce){.sheet{transition:none}}
 .toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + env(safe-area-inset-bottom) + 14px);transform:translateX(-50%) translateY(20px);z-index:70;
@@ -390,7 +397,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="630566aa">
+<meta name="app-version" content="430552c5">
 </head>
 <body>
 <header class="top">
@@ -421,7 +428,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 </nav>
 
 <div class="scrim" id="scrim"></div>
-<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheetBody"></div></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="sheetbar"><div class="grab"></div><button class="sheetx" id="sheetX" type="button" aria-label="關閉"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="sheetBody"></div></div>
 <div class="toast" id="toast" role="status"><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
 
 <script>
@@ -768,6 +775,30 @@ function openSheet(html, onMount){
 }
 function closeSheet(){ $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on'); sheetTimer = setTimeout(() => $('#sheetBody').innerHTML = '', 250); }
 $('#scrim').onclick = closeSheet;
+$('#sheetX').onclick = closeSheet;
+/* 往下拉關閉：從頂端那條把手拉，或內容已捲到最上面時往下拉 */
+(() => {
+  const sh = $('#sheet'); let y0 = null, x0 = 0, dy = 0, drag = false, bar = false;
+  const reset = () => { sh.style.transition = ''; sh.style.transform = ''; };
+  sh.addEventListener('touchstart', e => {
+    y0 = null; if (e.touches.length !== 1) return;
+    bar = !!e.target.closest('.sheetbar');
+    if (!bar && (sh.scrollTop > 0 || e.target.closest('input,textarea,select,.scroll'))) return;
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; dy = 0; drag = false;
+  }, {passive:true});
+  sh.addEventListener('touchmove', e => {
+    if (y0 == null) return;
+    dy = e.touches[0].clientY - y0; const dx = Math.abs(e.touches[0].clientX - x0);
+    if (!drag){
+      if (dy < -6 || dx > 12){ y0 = null; return; }
+      if (dy > 10 && dy > dx && (bar || sh.scrollTop <= 0)){ drag = true; sh.style.transition = 'none'; } else return;
+    }
+    if (e.cancelable) e.preventDefault();
+    sh.style.transform = `translateY(${Math.max(0, dy)}px)`;
+  }, {passive:false});
+  const end = () => { if (drag){ reset(); if (dy > 80) closeSheet(); } y0 = null; drag = false; };
+  sh.addEventListener('touchend', end); sh.addEventListener('touchcancel', end);
+})();
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
 /* ---------- 每月固定項目 */
