@@ -221,7 +221,7 @@ details.more[open] summary::before{content:"－ "}
 
 /* ---------- stats */
 .ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.ctrl select.input{width:auto;min-height:36px;padding:5px 10px;font-size:14px}
+.ctrl select.input{width:auto;min-width:0;flex:1 1 100%;min-height:36px;padding:5px 10px;font-size:14px}
 .toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);padding:4px 8px;border:1px solid var(--rule);border-radius:999px;background:var(--card)}
 .toggle input{accent-color:var(--ink);margin:0}
 .kpis{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
@@ -397,7 +397,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="430552c5">
+<meta name="app-version" content="ad29aabb">
 </head>
 <body>
 <header class="top">
@@ -674,6 +674,7 @@ function fyMD(){
 function fyOf(d){ const s = fyMD(), y = +d.slice(0, 4); return String(s === '01-01' || d.slice(5, 10) < s ? y : y + 1); }
 function fyStart(y){ const s = fyMD(); return (s === '01-01' ? +y : +y - 1) + '-' + s; }
 function fyEnd(y){ return shiftDay(fyStart(+y + 1), -1); }
+const fyMonths = y => { const f = d => d.slice(0, 4) + '.' + (+d.slice(5, 7)); return f(fyStart(y)) + '-' + f(fyStart(+y + 1)); };   // 2027 → 2026.11-2027.11
 const fyRangeText = y => fyStart(y).replace(/-/g, '/') + ' – ' + fyEnd(y).replace(/-/g, '/');
 
 /* ---------- rates & conversion */
@@ -1429,7 +1430,7 @@ function renderStats(){
       <select class="input" id="srange" aria-label="期間">
         <option value="all">全部（自 ${esc((S.settings['統計起始日'] || '2017-03-27').slice(0, 7).replace('-', '/'))}）</option>
         <option value="12m">近 12 個月</option>
-        ${years.map(y => `<option value="${y}">${y} 年度</option>`).join('')}
+        ${years.map(y => `<option value="${y}">${y} 年度（${fyMonths(y)}）</option>`).join('')}
       </select>
       <label class="toggle"><input type="checkbox" id="sprj" ${st.withPrj ? 'checked' : ''}>含專項</label>
       <label class="toggle"><input type="checkbox" id="sspr" ${st.spread ? 'checked' : ''}>攤提</label>
