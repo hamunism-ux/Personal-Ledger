@@ -434,7 +434,7 @@ body.viewer .rec, body.viewer .catrow{pointer-events:none}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="f61e2101">
+<meta name="app-version" content="5c4c1c81">
 </head>
 <body>
 <div class="capfix" aria-hidden="true"></div>
@@ -880,6 +880,7 @@ function s2t(text){
 /* ---------- 自動分類：先看你自己的紀錄，再看內建關鍵字 */
 const CAT_RULES = {
   '支出': [
+    [/小荷包|荷包注資|荷包充值|荷包存/, '家庭人情', '小荷包注資'],
     [/咖啡|拿鐵|美式|卡布|摩卡|星巴克|starbucks|manner|瑞幸|luckin|costa|seesaw|tims|奶茶|喜茶|奈雪|霸王茶姬|茶顏|蜜雪|coco|一點點|茶飲|果汁|飲料|可樂/i, '餐飲', '咖啡茶飲'],
     [/早餐|早飯|早點|包子|豆漿|油條|煎餅|飯糰|三明治|麥滿分/, '餐飲', '早餐'],
     [/午餐|午飯|中飯|中餐|便當/, '餐飲', '午餐'],
@@ -1267,6 +1268,11 @@ function parseLocal(text){
   return out;
 }
 S.ai = { items: [], src: '' };
+/* 後端還沒升級分類表時，先在本機補上新加的子分類（升級後試算表裡就有，這段不會再動到） */
+function ensureCats(){
+  const c = (S.cats || []).find(x => x.name === '家庭人情' && x.type === '支出');
+  if (c && !c.subs.includes('小荷包注資')){ const at = c.subs.indexOf('家用生活費'); c.subs = c.subs.slice(); c.subs.splice(at >= 0 ? at + 1 : c.subs.length, 0, '小荷包注資'); }
+}
 const isAgentMode = () => !!(typeof Net !== 'undefined' && Net.cfg && Net.cfg.scope === 'agent');
 /* 檢視模式（分享給家人的連結）：只看統計頁，不能記帳、不能改 */
 const isViewMode = () => !!(typeof Net !== 'undefined' && Net.cfg && Net.cfg.scope === 'view');
@@ -2203,7 +2209,7 @@ function remountForms(){ const v = $('#v-add'); delete v.dataset.mounted; const 
 function applyData(d){
   S.records = d.records; S.cats = d.categories; S.projects = d.projects; S.rates = d.rates; S.settings = d.settings || {};
   S.templates = d.templates || []; S.budgets = d.budgets || [];
-  buildRates(); remountForms();
+  ensureCats(); buildRates(); remountForms();
 }
 async function boot(fresh){
   if (Net.pendingCfg){ const ok = await applyPendingCfg(); if (ok) fresh = true; }
