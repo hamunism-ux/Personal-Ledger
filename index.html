@@ -261,6 +261,18 @@ svg text{font-family:var(--num);fill:var(--ink-3);font-size:11px}
 .bd-h{font-size:13px;color:var(--ink-2);display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--rule-soft);padding-bottom:4px;margin-bottom:2px}
 .bd-h span{font-size:11px;color:var(--ink-3)}
 .brow{display:grid;grid-template-columns:4.2em 1fr 12.4em;gap:10px;align-items:center;padding:6px 0;font-size:13px}
+.bdetail button.brow{width:100%;background:none;border:0;border-bottom:1px solid var(--rule-soft);text-align:left;color:inherit;font-family:inherit;grid-template-columns:4.2em 1fr 12.4em 8px;gap:8px;padding:9px 0}
+.bdetail button.brow:active{background:var(--rule-soft)}
+.brow .go{color:var(--ink-3);font-size:15px;line-height:1}
+.bdsum{margin-top:6px;font-size:14px}.bdsum .num{font-size:26px}
+.bdlines{display:grid;gap:6px;margin-top:8px}
+.bdline{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--rule);border-radius:var(--r-md);padding:8px 10px;color:var(--ink);font-family:inherit}
+.bdline:disabled{opacity:1}
+.bdline[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.bdline .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}
+.bdline .t .num{font-size:14px;white-space:nowrap}.bdline .t small{color:var(--ink-3);font-size:12px}
+.bdline .m{display:block;font-size:12px;color:var(--ink-2);margin-top:2px;line-height:1.5}
+.bdm{font-family:var(--serif);font-size:13px;font-weight:700;color:var(--ink-2);margin:12px 0 0;padding-bottom:3px;border-bottom:1px solid var(--rule)}
 .brow .nm{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brow .bbar{height:5px;margin-top:0}
 .brow .bbar b{top:-2px;bottom:-2px;width:1.5px}
@@ -378,7 +390,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="6022d23d">
+<meta name="app-version" content="bb3aea73">
 </head>
 <body>
 <header class="top">
@@ -645,6 +657,17 @@ function lastDay(m){ const [y, mo] = m.split('-').map(Number); return m + '-' + 
 function shiftDay(d, n){ const t = new Date(Date.parse(d + 'T00:00:00Z') + n * 864e5); return t.toISOString().slice(0, 10); }
 function weekday(d){ return WEEK[new Date(d + 'T00:00:00Z').getUTCDay()]; }
 const ZH_MONTH = ['一','二','三','四','五','六','七','八','九','十','十一','十二'];
+/* 年度：預設每年 11/18 起算、到隔年 11/17，以結束的那一年命名（2026/11/18–2027/11/17＝2027 年度）。
+   起算日存在 Settings「年度起始」（MM-DD，日期限 1–28）；設成 01-01 就等於一般的 1–12 月。月份仍是一般的 1 號到月底。 */
+function fyMD(){
+  const m = String(S.settings['年度起始'] || '').match(/(?:\d{4}\D)?(\d{1,2})\D+(\d{1,2})/);
+  if (!m || +m[1] < 1 || +m[1] > 12 || +m[2] < 1 || +m[2] > 28) return '11-18';
+  return String(+m[1]).padStart(2, '0') + '-' + String(+m[2]).padStart(2, '0');
+}
+function fyOf(d){ const s = fyMD(), y = +d.slice(0, 4); return String(s === '01-01' || d.slice(5, 10) < s ? y : y + 1); }
+function fyStart(y){ const s = fyMD(); return (s === '01-01' ? +y : +y - 1) + '-' + s; }
+function fyEnd(y){ return shiftDay(fyStart(+y + 1), -1); }
+const fyRangeText = y => fyStart(y).replace(/-/g, '/') + ' – ' + fyEnd(y).replace(/-/g, '/');
 
 /* ---------- rates & conversion */
 let RATE = {}, RATE_KEYS = [], LATEST = {CNY:7, TWD:31, USD:1};
@@ -1247,15 +1270,17 @@ async function addQuick(rec){
  *  Ledger rows & 明細
  * ===================================================================== */
 const byNewest = (a, b) => a.date !== b.date ? (a.date < b.date ? 1 : -1) : (String(a.created) < String(b.created) ? 1 : -1);
-function rowHTML(r){
-  const c = catInfo(r), v = val(r), plus = r.type === '補貼';
-  const title = r.item || r.sub || r.cat;
+function rowHTML(r){ return recRowHTML(r); }
+/* it（可省）：預算明細用，{v: 這段期間實際算進來的金額, d: 算在哪一天}；攤提的只算其中一份 */
+function recRowHTML(r, it){
+  const c = catInfo(r), full = val(r), v = it ? it.v : full, plus = r.type === '補貼';
+  const title = r.item || r.sub || r.cat, partial = it && Math.abs(it.v - full) > 0.005;
   const meta = [`${+r.date.slice(5, 7)}/${+r.date.slice(8)} 週${weekday(r.date)}`, r.project ? r.cat : (r.sub ? r.cat + '／' + r.sub : r.cat)].join('　');
   return `<button class="rec${plus ? ' plus' : ''}" data-id="${esc(r.id)}">
     <span style="--c:${c.color};display:contents">${catIcon(c.name, c.seal, 'sm' + (plus ? ' fill' : ''))}</span>
     <span class="body"><div class="t">${esc(title)}</div>
       <div class="m">${r.project ? `<span class="tag prj">${esc(r.project)}</span>` : ''}${r.spread > 1 ? `<span class="tag">攤${r.spread}月</span>` : ''}${esc(meta)}${r.note ? '　' + esc(r.note) : ''}</div></span>
-    <span class="a"><div class="v">${plus ? '+' : ''}${fmt(v)}</div>${r.cur !== S.disp ? `<div class="o">${fmt(r.amount, r.cur)}</div>` : ''}</span>
+    <span class="a"><div class="v">${plus ? '+' : ''}${fmt(v)}</div>${partial ? `<div class="o">共 ${fmt(full)}</div>` : r.cur !== S.disp ? `<div class="o">${fmt(r.amount, r.cur)}</div>` : ''}</span>
   </button>`;
 }
 document.addEventListener('click', e => { const b = e.target.closest('.rec[data-id]'); if (b) openEdit(b.dataset.id); });
@@ -1263,14 +1288,14 @@ document.addEventListener('click', e => { const b = e.target.closest('.rec[data-
 function renderList(){
   const v = $('#v-list'), L = S.list;
   if (!v.dataset.mounted){
-    const years = [...new Set(S.records.map(r => r.date.slice(0, 4)))].sort().reverse();
+    const years = [...new Set(S.records.map(r => fyOf(r.date)))].sort().reverse();
     v.innerHTML = `
       <div class="filters">
         <input class="input" id="lq" type="search" placeholder="搜尋項目、備註、標籤" aria-label="搜尋">
         <div class="row3">
           <select class="input" id="ltype" aria-label="類型"><option value="">支出＋補貼</option><option value="支出">只看支出</option><option value="補貼">只看補貼</option></select>
           <select class="input" id="lcat" aria-label="分類"><option value="">全部分類</option></select>
-          <select class="input" id="lyear" aria-label="年份"><option value="">全部年份</option>${years.map(y => `<option>${y}</option>`).join('')}</select>
+          <select class="input" id="lyear" aria-label="年份"><option value="">全部年度</option>${years.map(y => `<option value="${y}">${y} 年度</option>`).join('')}</select>
         </div>
       </div>
       <div id="listBody"></div>`;
@@ -1291,7 +1316,7 @@ function drawList(){
   const L = S.list, q = L.q.toLowerCase();
   const rows = S.records.filter(r =>
     !r.project && (!L.type || r.type === L.type) &&
-    (!L.cat || r.cat === L.cat) && (!L.year || r.date.startsWith(L.year)) &&
+    (!L.cat || r.cat === L.cat) && (!L.year || fyOf(r.date) === L.year) &&
     (!q || [r.item, r.note, r.tags, r.cat, r.sub].join(' ').toLowerCase().includes(q))).sort(byNewest);
   const groups = []; let cur;
   rows.forEach(r => { const m = ym(r.date); if (!cur || cur.m !== m){ cur = {m, rows:[]}; groups.push(cur); } cur.rows.push(r); });
@@ -1311,15 +1336,17 @@ function drawList(){
  * ===================================================================== */
 function portions(r, spread){
   const v = val(r), n = spread ? Math.max(1, r.spread || 1) : 1, m0 = ym(r.date);
-  const out = []; for (let i = 0; i < n; i++) out.push({m: addMonths(m0, i), v: v / n});
+  // 攤提的每一份落在之後各月的同一天（超過月底就取月底），年度的歸屬看這個日期
+  const out = []; for (let i = 0; i < n; i++){ const m = addMonths(m0, i), ld = lastDay(m), d = i ? (m + r.date.slice(7) > ld ? ld : m + r.date.slice(7)) : r.date; out.push({m, d, v: v / n}); }
   return out;
 }
 function rangeDef(key){
   const nowM = ym(S.today), start0 = S.settings['統計起始日'] || '2017-03-27';
   const firstM = S.records.length ? S.records.reduce((a, r) => r.date < a ? r.date : a, '9999').slice(0, 7) : nowM;
-  if (key === 'all') return {a: firstM < ym(start0) ? firstM : ym(start0), b: nowM, d0: start0, label:'全部'};
-  if (key === '12m') return {a: addMonths(nowM, -11), b: nowM, d0: addMonths(nowM, -11) + '-01', label:'近 12 個月'};
-  const y = key; return {a: y + '-01', b: y + '-12', d0: y + '-01-01', label: y + ' 年'};
+  // dA–dB：計入的日期範圍；d0：算日均的起點
+  if (key === 'all'){ const a = firstM < ym(start0) ? firstM : ym(start0); return {dA: a + '-01', dB: lastDay(nowM), d0: start0, label:'全部'}; }
+  if (key === '12m') return {dA: addMonths(nowM, -11) + '-01', dB: lastDay(nowM), d0: addMonths(nowM, -11) + '-01', label:'近 12 個月'};
+  const y = key; return {dA: fyStart(y), dB: fyEnd(y), d0: fyStart(y), fy: y, label: y + ' 年度'};
 }
 function computeStats(){
   const st = S.stats, R = rangeDef(st.range), nowM = ym(S.today);
@@ -1327,11 +1354,13 @@ function computeStats(){
   const months = {}; const cats = {}; const years = {};
   let exp = 0, sub = 0, nExp = 0;
   const top = [];
+  const thisM = nowM, lastM = addMonths(nowM, -1), cal = {[thisM]: {e:0, s:0}, [lastM]: {e:0, s:0}};   // 本月／上月：整個月，不受年度邊界切割
   recs.forEach(r => {
     portions(r, st.spread).forEach(p => {
-      if (p.m < R.a || p.m > R.b || p.m > nowM) return;   // 攤提到未來月份的部分還沒發生，不算
+      if (cal[p.m]) cal[p.m][r.type === '補貼' ? 's' : 'e'] += p.v;
+      if (p.d < R.dA || p.d > R.dB || p.m > nowM) return;   // 攤提到未來月份的部分還沒發生，不算
       const mm = months[p.m] || (months[p.m] = {e:0, s:0});
-      const yy = years[p.m.slice(0, 4)] || (years[p.m.slice(0, 4)] = {e:0, s:0});
+      const fy = fyOf(p.d), yy = years[fy] || (years[fy] = {e:0, s:0});
       if (r.type === '補貼'){ sub += p.v; mm.s += p.v; yy.s += p.v; }
       else {
         exp += p.v; mm.e += p.v; yy.e += p.v;
@@ -1340,18 +1369,17 @@ function computeStats(){
         c.v += p.v;
       }
     });
-    const m = ym(r.date);
-    if (m >= R.a && m <= R.b && r.type !== '補貼'){ top.push(r); nExp++; }
+    if (r.date >= R.dA && r.date <= R.dB && r.type !== '補貼'){ top.push(r); nExp++; }
   });
-  const end = S.today < lastDay(R.b) ? S.today : lastDay(R.b);
-  const start = R.d0 > R.a + '-01' ? R.d0 : R.a + '-01';
+  const end = S.today < R.dB ? S.today : R.dB;
+  const start = R.d0 > R.dA ? R.d0 : R.dA;
   const days = Math.max(1, daysBetween(start, end) + 1);
   top.sort((a, b) => val(b) - val(a));
-  return {R, exp, sub, net: exp - sub, days, months, cats, years, top: top.slice(0, 10), nExp, start, end};
+  return {R, exp, sub, net: exp - sub, days, months, cats, years, top: top.slice(0, 10), nExp, start, end, cal};
 }
 function yearDays(y){
   const s0 = S.settings['統計起始日'] || '2017-03-27';
-  const a = (y + '-01-01') > s0 ? y + '-01-01' : s0, b = (y + '-12-31') < S.today ? y + '-12-31' : S.today;
+  const a = fyStart(y) > s0 ? fyStart(y) : s0, b = fyEnd(y) < S.today ? fyEnd(y) : S.today;
   return Math.max(1, daysBetween(a, b) + 1);
 }
 
@@ -1360,17 +1388,17 @@ function yearDays(y){
  * ===================================================================== */
 function renderStats(){
   const v = $('#v-stats'), st = S.stats;
-  const years = [...new Set(S.records.map(r => r.date.slice(0, 4)).concat([S.today.slice(0, 4)], S.budgets.map(b => b.year)))].sort().reverse();
+  const years = [...new Set(S.records.map(r => fyOf(r.date)).concat([fyOf(S.today)], S.budgets.map(b => b.year)))].sort().reverse();
   const X = computeStats();
   const perMonth = X.net / (X.days / (365.25 / 12));
   const thisM = ym(S.today), lastM = addMonths(thisM, -1);
-  const mThis = X.months[thisM], mLast = X.months[lastM];
+  const mThis = X.cal[thisM], mLast = X.cal[lastM];
   v.innerHTML = `
     <div class="ctrl">
       <select class="input" id="srange" aria-label="期間">
         <option value="all">全部（自 ${esc((S.settings['統計起始日'] || '2017-03-27').slice(0, 7).replace('-', '/'))}）</option>
         <option value="12m">近 12 個月</option>
-        ${years.map(y => `<option value="${y}">${y} 年</option>`).join('')}
+        ${years.map(y => `<option value="${y}">${y} 年度</option>`).join('')}
       </select>
       <label class="toggle"><input type="checkbox" id="sprj" ${st.withPrj ? 'checked' : ''}>含專項</label>
       <label class="toggle"><input type="checkbox" id="sspr" ${st.spread ? 'checked' : ''}>攤提</label>
@@ -1382,7 +1410,7 @@ function renderStats(){
       <div class="kpi"><div class="l">月均</div><div class="v">${fmt(perMonth)}</div><div class="s">按淨支出計</div></div>
       <div class="kpi"><div class="l">總支出</div><div class="v">${fmt(X.exp)}</div><div class="s">${X.nExp.toLocaleString()} 筆</div></div>
       <div class="kpi"><div class="l">補貼對衝</div><div class="v" style="color:var(--plus)">${fmt(X.sub)}</div><div class="s">${X.exp ? (X.sub / X.exp * 100).toFixed(1) + '%' : '—'}</div></div>
-      ${(st.range === 'all' || st.range === '12m' || st.range === S.today.slice(0, 4)) ? `
+      ${(st.range === 'all' || st.range === '12m' || st.range === fyOf(S.today)) ? `
       <div class="kpi"><div class="l">本月淨支出</div><div class="v">${fmt(mThis ? mThis.e - mThis.s : 0)}</div><div class="s">${+thisM.slice(5)} 月 1 日至今</div></div>
       <div class="kpi"><div class="l">上月淨支出</div><div class="v">${fmt(mLast ? mLast.e - mLast.s : 0)}</div><div class="s">${+lastM.slice(5)} 月</div></div>` : ''}
     </div>
@@ -1398,7 +1426,7 @@ function renderStats(){
 
     <div class="sec"><h3>分類占比<span class="tiny muted">點一下看明細</span></h3><div id="catlist"></div></div>
 
-    <div class="sec"><h3>逐年</h3><div class="tblwrap"><table class="ytab"><thead><tr><th>年</th><th>支出</th><th>補貼</th><th>淨支出</th><th>日均</th></tr></thead><tbody>
+    <div class="sec"><h3>逐年</h3><div class="tblwrap"><table class="ytab"><thead><tr><th>年度</th><th>支出</th><th>補貼</th><th>淨支出</th><th>日均</th></tr></thead><tbody>
       ${Object.keys(X.years).sort().reverse().map(y => { const o = X.years[y]; return `<tr><td>${y}</td><td>${fmt(o.e)}</td><td class="p">${o.s ? fmt(o.s) : '—'}</td><td>${fmt(o.e - o.s)}</td><td>${fmt((o.e - o.s) / yearDays(y))}</td></tr>`; }).join('')}
       <tr class="total"><td>合計</td><td>${fmt(X.exp)}</td><td class="p">${fmt(X.sub)}</td><td>${fmt(X.net)}</td><td>${fmt(X.net / X.days)}</td></tr>
     </tbody></table></div></div>
@@ -1421,7 +1449,7 @@ function drawChart(X){
   if (st.gran === 'y'){
     keys = Object.keys(X.years).sort(); data = keys.map(k => X.years[k]);
   } else {
-    const n = monthsBetween(X.R.a, X.R.b) + 1; keys = []; for (let i = 0; i < n; i++) keys.push(addMonths(X.R.a, i));
+    const a = ym(X.R.dA), n = monthsBetween(a, ym(X.R.dB)) + 1; keys = []; for (let i = 0; i < n; i++) keys.push(addMonths(a, i));
     keys = keys.filter(k => k <= ym(S.today)); data = keys.map(k => X.months[k] || {e:0, s:0});
   }
   if (!keys.length){ wrap.innerHTML = '<div class="empty">沒有資料</div>'; return; }
@@ -1457,7 +1485,9 @@ function drawChart(X){
   const sc2 = $('.scroll', wrap); sc2.scrollLeft = sc2.scrollWidth;
   const info = i => {
     const k = keys[i], d = data[i];
-    $('#cinfo').innerHTML = `<span>${st.gran === 'y' ? k + ' 年' : k.slice(0, 4) + ' 年 ' + (+k.slice(5)) + ' 月'}</span><span>支出 <b>${fmt(d.e)}</b></span>${d.s ? `<span class="p">補貼 <b>${fmt(d.s)}</b></span><span>淨額 <b>${fmt(d.e - d.s)}</b></span>` : ''}`;
+    // 年度頭尾那個月只算到年度邊界，標出來
+    const part = st.gran === 'y' || !X.R.fy ? '' : (k === ym(X.R.dA) && X.R.dA.slice(8) !== '01' ? `（${+X.R.dA.slice(8)} 日起）` : k === ym(X.R.dB) && X.R.dB !== lastDay(k) ? `（至 ${+X.R.dB.slice(8)} 日）` : '');
+    $('#cinfo').innerHTML = `<span>${st.gran === 'y' ? k + ' 年度' : k.slice(0, 4) + ' 年 ' + (+k.slice(5)) + ' 月' + part}</span><span>支出 <b>${fmt(d.e)}</b></span>${d.s ? `<span class="p">補貼 <b>${fmt(d.s)}</b></span><span>淨額 <b>${fmt(d.e - d.s)}</b></span>` : ''}`;
     $$('.bar', wrap).forEach(g => g.style.opacity = +g.dataset.i === i ? 1 : .55);
   };
   $$('.bar', wrap).forEach(g => g.addEventListener('click', () => info(+g.dataset.i)));
@@ -1515,31 +1545,36 @@ function budLineOf(r, lines){
   l = lines.find(x => x.tokens.some(t => t.cat === r.cat && !t.sub)); if (l) return l;
   return lines.find(x => x.tokens.some(t => t.all)) || null;
 }
-function budTarget(){ return /^\d{4}$/.test(S.stats.range) ? S.stats.range : S.today.slice(0, 4); }
+function budTarget(){ return /^\d{4}$/.test(S.stats.range) ? S.stats.range : fyOf(S.today); }
+const budMapText = m => { const ts = budTokens(m); if (!ts.length) return '尚未設定對應分類'; const by = {};
+  ts.forEach(t => { if (t.all){ by['＊'] = ['其他未對應的支出']; return; } (by[t.cat] = by[t.cat] || []).push(t.sub || '全部'); });
+  return Object.entries(by).map(([c, ss]) => c === '＊' ? ss[0] : c + '：' + ss.join('、')).join('；'); };
 function computeBudget(year, view){
   const lines = budLinesFor(year); if (!lines.length) return null;
-  const curY = S.today.slice(0, 4), curM = ym(S.today);
-  const inRange = m => view === 'm' ? m === curM : (m.slice(0, 4) === String(year) && m <= curM);
+  const curY = fyOf(S.today), curM = ym(S.today), fs = fyStart(year), fe = fyEnd(year);
+  const inRange = p => view === 'm' ? p.m === curM : (p.d >= fs && p.d <= fe && p.m <= curM);
   const act = new Map(lines.map(l => [l, 0])); let none = 0, sub = 0, hist = 0;
+  const items = new Map(lines.map(l => [l, []])), histItems = [];   // 每個項目實際算進了哪些紀錄（給「各項參考」點進去看）
   S.records.forEach(r => {
     if (r.project) return;
     portions(r, S.stats.spread).forEach(p => {
-      if (!inRange(p.m)) return;
+      if (!inRange(p)) return;
       if (r.type === '補貼'){ sub += p.v; return; }
-      if (r.cat === '日常彙總'){ hist += p.v; return; }   // 以前按月合併的日常開銷：不分到細項，只算進生活費小計
-      const l = budLineOf(r, lines); if (l) act.set(l, act.get(l) + p.v); else none += p.v;
+      if (r.cat === '日常彙總'){ hist += p.v; histItems.push({r, v:p.v, d:p.d}); return; }   // 以前按月合併的日常開銷：不分到細項，只算進生活費小計
+      const l = budLineOf(r, lines); if (l){ act.set(l, act.get(l) + p.v); items.get(l).push({r, v:p.v, d:p.d}); } else none += p.v;
     });
   });
   const toDisp = (amt, cur) => conv(amt, cur || 'CNY', S.today, S.disp);
   let pace;
   if (view === 'm'){ pace = +S.today.slice(8) / +lastDay(curM).slice(8); }
   else if (String(year) < curY) pace = 1; else if (String(year) > curY) pace = 0;
-  else { const a = year + '-01-01', b = year + '-12-31'; pace = (daysBetween(a, S.today) + 1) / (daysBetween(a, b) + 1); }
+  else pace = (daysBetween(fs, S.today) + 1) / (daysBetween(fs, fe) + 1);
   const live = pace > 0 && pace < 1;
+  const fixedPace = Math.min(12, monthsBetween(ym(fs), curM) + 1) / 12;   // 固定開銷：年度內已經碰到幾個月份
   const rows = lines.filter(l => view === 'y' || l.period === '月').map(l => {
     const budget = toDisp(view === 'y' && l.period === '月' ? l.amount * 12 : l.amount, l.cur), actual = act.get(l);
     // 固定開銷：月視圖不看時間進度；年視圖按「已過的月份」算應付多少
-    const expected = !live ? null : l.fixed ? (view === 'm' ? null : budget * (+S.today.slice(5, 7) / 12)) : budget * pace;
+    const expected = !live ? null : l.fixed ? (view === 'm' ? null : budget * fixedPace) : budget * pace;
     return {l, budget, actual, expected};
   });
   const sumExp = xs => live ? xs.reduce((a, x) => a + (x.expected == null ? Math.min(x.actual, x.budget) : x.expected), 0) : null;
@@ -1547,7 +1582,7 @@ function computeBudget(year, view){
   const tb = rows.reduce((a, x) => a + x.budget, 0), ta = rows.reduce((a, x) => a + x.actual, 0) + hist;
   const histGroup = (lines.find(l => l.tokens.some(t => t.all)) || lines.find(l => l.period === '月') || lines[0]);
   const te = live ? sumExp(rows) : null;
-  return {rows, skipped, pace, tb, ta, te, sumExp, none, sub, hist, histGroup: histGroup.group || histGroup.name};
+  return {rows, skipped, pace, tb, ta, te, sumExp, none, sub, hist, items, histItems, histGroup: histGroup.group || histGroup.name};
 }
 /* expected＝照時間「應該花到」的金額；固定開銷沒有 expected（月初一次付清屬正常） */
 function budStatus(actual, budget, expected){
@@ -1569,19 +1604,55 @@ function budBar(actual, budget, expected){
   return `<div class="bbar"><i class="${budStatus(actual, budget, expected)}" style="width:${pct.toFixed(1)}%"></i>${mk != null ? `<b style="left:calc(${mk.toFixed(1)}% - 1px)"></b>` : ''}</div>`;
 }
 /* 各項參考：一行精簡顯示（名稱｜細長條｜金額），重點留給上方的年度總計 */
-function budLineHTML(name, actual, budget, expected){
+function budLineHTML(name, actual, budget, expected, key){
   const st = budStatus(actual, budget, expected), over = budget > 0 && actual > budget * 1.005;
-  return `<div class="brow"><span class="nm">${esc(name)}</span>${budBar(actual, budget, expected)}
-    <span class="v">${fmt(actual)}<small> / ${fmt(budget).replace(/^[^\d−]+/, '')}</small>${over ? `<em class="over">+${Math.round((actual - budget) / budget * 100)}%</em>` : st === 'warn' ? `<em class="warn">偏快</em>` : ''}</span></div>`;
+  return `<${key != null ? `button type="button" data-g="${esc(key)}"` : 'div'} class="brow"><span class="nm">${esc(name)}</span>${budBar(actual, budget, expected)}
+    <span class="v">${fmt(actual)}<small> / ${fmt(budget).replace(/^[^\d−]+/, '')}</small>${over ? `<em class="over">+${Math.round((actual - budget) / budget * 100)}%</em>` : st === 'warn' ? `<em class="warn">偏快</em>` : ''}</span>${key != null ? '<span class="go" aria-hidden="true">›</span>' : ''}</${key != null ? 'button' : 'div'}>`;
+}
+/* 點「各項參考」的一項：看它怎麼歸類、實際算進了哪些紀錄 */
+function openBudDetail(g, B, year, view){
+  const h = B.hist > 0 && g.g === B.histGroup ? B.hist : 0, HIST = '以前的日常彙總';
+  const ga = g.rows.reduce((a, x) => a + x.actual, 0) + h, gb = g.rows.reduce((a, x) => a + x.budget, 0);
+  const all = [];
+  g.rows.forEach(x => (B.items.get(x.l) || []).forEach(it => all.push({...it, line:x.l.name})));
+  if (h) B.histItems.forEach(it => all.push({...it, line:HIST}));
+  all.sort((a, b) => a.d !== b.d ? (a.d < b.d ? 1 : -1) : byNewest(a.r, b.r));
+  const multi = g.rows.length > 1 || h > 0;
+  let sel = '', shown = 60;
+  const per = view === 'm' ? `${+S.today.slice(5, 7)} 月` : `${year} 年度`;
+  openSheet(`<h3>${esc(g.g)}<span class="tiny muted" style="font-weight:400;margin-left:8px">${per}</span></h3>
+    <div class="bdsum"><span class="num">${fmt(ga)}</span><span class="muted"> / ${fmt(gb)}</span></div>
+    ${budBar(ga, gb, B.sumExp(g.rows))}
+    <div class="bd-h" style="margin-top:16px">分類方式${multi ? '<span>點一項只看它的紀錄</span>' : ''}</div>
+    <div class="bdlines">${g.rows.map(x => `<button type="button" class="bdline" data-l="${esc(x.l.name)}"${multi ? '' : ' disabled'}>
+        <span class="t"><b>${esc(x.l.name)}</b><span class="num">${fmt(x.actual)}<small> / ${fmt(x.budget).replace(/^[^\d−]+/, '')}</small></span></span>
+        <span class="m">${esc(budMapText(x.l.map))}</span></button>`).join('')}
+      ${h ? `<button type="button" class="bdline" data-l="${HIST}"><span class="t"><b>${HIST}</b><span class="num">${fmt(h)}</span></span><span class="m">以前按月合併記的日常開銷，沒有拆到各項</span></button>` : ''}</div>
+    <div class="tiny muted" style="margin-top:6px">標籤寫了項目名稱的，優先算進那一項。</div>
+    <div id="bdRecs"></div>`, body => {
+    const paint = () => {
+      const L = sel ? all.filter(it => it.line === sel) : all, part = L.slice(0, shown);
+      $$('.bdline', body).forEach(b => b.setAttribute('aria-pressed', b.dataset.l === sel));
+      const groups = []; let cur;
+      part.forEach(it => { const m = ym(it.d); if (!cur || cur.m !== m){ cur = {m, rows:[]}; groups.push(cur); } cur.rows.push(it); });
+      $('#bdRecs', body).innerHTML = `<div class="bd-h" style="margin-top:16px">${sel ? esc(sel) + '：' : ''}算進來的紀錄<span>${L.length} 筆</span></div>` +
+        (!L.length ? '<div class="empty">這段期間沒有紀錄。</div>' :
+        groups.map(gr => `<div class="bdm">${gr.m.slice(0, 4)} 年 ${+gr.m.slice(5)} 月</div>` + gr.rows.map(it => recRowHTML(it.r, it)).join('')).join('') +
+        (L.length > shown ? `<div style="text-align:center;margin:14px 0"><button class="btn ghost" id="bdMore">顯示更多（還有 ${L.length - shown} 筆）</button></div>` : ''));
+      const m = $('#bdMore', body); if (m) m.onclick = () => { shown += 120; paint(); };
+    };
+    $$('.bdline', body).forEach(b => b.onclick = () => { sel = sel === b.dataset.l ? '' : b.dataset.l; shown = 60; paint();
+      if (sel) $('#bdRecs', body).scrollIntoView({behavior:'smooth', block:'start'}); });
+    paint();
+  });
 }
 function drawBudget(){
   const el = $('#budSec'); if (!el) return;
-  const year = budTarget(), curY = S.today.slice(0, 4);
+  const year = budTarget(), curY = fyOf(S.today);
   const B = computeBudget(year, year === curY ? S.bud.view : 'y');
   if (!B){
-    const sugg = +S.today.slice(5, 7) >= 10 ? String(+curY + 1) : curY;
-    el.innerHTML = `<div class="sec" style="margin-top:14px"><button class="linkbtn" id="budNew">＋ 設定 ${year === curY ? sugg : year} 年預算</button></div>`;
-    $('#budNew').onclick = () => openBudgetEditor(year === curY ? sugg : year);
+    el.innerHTML = `<div class="sec" style="margin-top:14px"><button class="linkbtn" id="budNew">＋ 設定 ${year} 年度預算</button></div>`;
+    $('#budNew').onclick = () => openBudgetEditor(year);
     return;
   }
   const view = year === curY ? S.bud.view : 'y';
@@ -1590,23 +1661,24 @@ function drawBudget(){
   const proj = view === 'y' && B.pace > 0.08 && B.pace < 1 && B.te > 0 ? B.ta / B.te * B.tb : null;
   const groups = []; B.rows.forEach(x => { const g = x.l.group || x.l.name; let o = groups.find(z => z.g === g); if (!o){ o = {g, rows:[]}; groups.push(o); } o.rows.push(x); });
   el.innerHTML = `<div class="sec bud">
-    <h3>${esc(year)} 年預算${year === curY ? `<div class="seg" id="budView"><button data-v="y" aria-pressed="${view === 'y'}">全年</button><button data-v="m" aria-pressed="${view === 'm'}">本月</button></div>` : ''}</h3>
+    <h3>${esc(year)} 年度預算${year === curY ? `<div class="seg" id="budView"><button data-v="y" aria-pressed="${view === 'y'}">全年</button><button data-v="m" aria-pressed="${view === 'm'}">本月</button></div>` : ''}</h3>
     <div class="btotal">
-      <div class="bt-h"><span class="muted">${view === 'm' ? +S.today.slice(5, 7) + ' 月已花' : (B.pace === 0 ? '還沒開始' : '今年已花')}</span><span class="muted">預算 ${fmt(B.tb)}</span></div>
+      <div class="bt-h"><span class="muted">${view === 'm' ? +S.today.slice(5, 7) + ' 月已花' : (B.pace === 0 ? '還沒開始' : year === curY ? '本年度已花' : '全年度花費')}</span><span class="muted">預算 ${fmt(B.tb)}</span></div>
       <div class="big">${fmt(B.ta)}</div>
       ${budBar(B.ta, B.tb, B.te)}
       <div class="bt-stats">
         ${B.tb - B.ta >= 0 ? `<div><span>還剩</span><b>${fmt(B.tb - B.ta)}</b></div>` : `<div class="o"><span>已超出</span><b>${fmt(B.ta - B.tb)}</b></div>`}
       </div>
+      ${view === 'y' ? `<div class="tiny muted" style="margin-top:8px">${fyRangeText(year)}</div>` : ''}
       ${proj ? `<div class="note">照目前速度，全年約 ${fmt(proj)}，${proj > B.tb ? `會<b style="color:var(--seal)">超出</b>` : '低於'}預算 ${fmt(Math.abs(proj - B.tb))}。</div>` : ''}
     </div>
     <div class="bdetail">
       <div class="bd-h">各項參考</div>
       ${groups.map(g => {
         const h = B.hist > 0 && g.g === B.histGroup ? B.hist : 0;
-        if (g.rows.length === 1 && g.rows[0].l.name === g.g && !h) return budLineHTML(g.g, g.rows[0].actual, g.rows[0].budget, g.rows[0].expected);
+        if (g.rows.length === 1 && g.rows[0].l.name === g.g && !h) return budLineHTML(g.g, g.rows[0].actual, g.rows[0].budget, g.rows[0].expected, g.g);
         const ga = g.rows.reduce((a, x) => a + x.actual, 0) + h, gb = g.rows.reduce((a, x) => a + x.budget, 0);
-        return budLineHTML(g.g, ga, gb, B.sumExp(g.rows));
+        return budLineHTML(g.g, ga, gb, B.sumExp(g.rows), g.g);
       }).join('')}
       <div class="note">${view === 'm' && B.skipped.length ? `${B.skipped.map(l => esc(l.name)).join('、')}按年計，切到「全年」看。` : ''}
         ${B.hist > 0 ? `${esc(B.histGroup)}含以前按月合併記的日常開銷 ${fmt(B.hist)}。` : ''}
@@ -1617,11 +1689,12 @@ function drawBudget(){
   </div>`;
   $$('#budView button').forEach(b => b.onclick = () => { S.bud.view = b.dataset.v; drawBudget(); });
   $('#budEdit').onclick = () => openBudgetEditor(year);
+  $$('.brow[data-g]', el).forEach(b => b.onclick = () => { const g = groups.find(z => z.g === b.dataset.g); if (g) openBudDetail(g, B, year, view); });
 }
 
 function openBudgetEditor(year){
   year = String(year);
-  const curY = S.today.slice(0, 4);
+  const curY = fyOf(S.today);
   const yearsOpt = [...new Set([String(+curY - 1), curY, String(+curY + 1), String(+curY + 2), year].concat(S.budgets.map(b => b.year)))].sort();
   const load = y => {
     let src = S.budgets.filter(b => b.year === y);
@@ -1630,9 +1703,7 @@ function openBudgetEditor(year){
   };
   let lines = load(year), openMap = -1;
   const cats = S.cats.filter(c => c.type === '支出' && c.name !== '日常彙總');
-  const mapText = m => { const ts = budTokens(m); if (!ts.length) return '尚未設定對應分類'; const by = {};
-    ts.forEach(t => { if (t.all){ by['＊'] = ['其他未對應的支出']; return; } (by[t.cat] = by[t.cat] || []).push(t.sub || '全部'); });
-    return Object.entries(by).map(([c, ss]) => c === '＊' ? ss[0] : c + '：' + ss.join('、')).join('；'); };
+  const mapText = budMapText;
   openSheet(`<h3>年度預算</h3>
     <div class="row2 field" style="margin-top:8px"><div><label>年度</label><select class="input" id="byear">${yearsOpt.map(y => `<option${y === year ? ' selected' : ''}>${y}</option>`).join('')}</select></div>
       <div><label>全年合計</label><div class="num" id="btot" style="font-size:17px;padding-top:8px;line-height:1.35"></div></div></div>
@@ -1680,7 +1751,7 @@ function openBudgetEditor(year){
       $('#bsave', body).disabled = true;
       try { S.budgets = await call('api_saveBudget', year, clean); }
       catch(e){ $('#bsave', body).disabled = false; $('#berr', body).textContent = e.message || String(e); return; }
-      closeSheet(); toast(year + ' 年預算已儲存' + (S.view === 'stats' && budTarget() !== year ? `，在上方期間選「${year} 年」可查看` : ''));
+      closeSheet(); toast(year + ' 年度預算已儲存' + (S.view === 'stats' && budTarget() !== year ? `，在上方期間選「${year} 年度」可查看` : ''));
       if (S.view === 'stats') renderStats();
     };
     paint();
@@ -1837,6 +1908,9 @@ function openSettings(){
     </div>
     <div class="tiny muted" style="margin-top:4px">當月匯率：每筆按發生月份的匯率換算，歷史數字不會隨匯率波動。最新匯率：全部按今天的匯率換算。</div>
     <div class="field"><label>統計起始日（計算日均的起點）</label><input class="input" type="date" id="sstart" value="${esc(s['統計起始日'] || '2017-03-27')}"></div>
+    <div class="field"><label>年度起始日（每年從這天起算一個年度）</label><div class="row2">
+      <select class="input" id="sfm" aria-label="月">${ZH_MONTH.map((_, i) => `<option value="${i + 1}"${i + 1 === +fyMD().slice(0, 2) ? ' selected' : ''}>${i + 1} 月</option>`).join('')}</select>
+      <select class="input" id="sfd" aria-label="日">${Array.from({length:28}, (_, i) => `<option value="${i + 1}"${i + 1 === +fyMD().slice(3) ? ' selected' : ''}>${i + 1} 日</option>`).join('')}</select></div></div>
     <div class="sec" style="margin-top:18px"><h3>最新匯率</h3>
       <dl class="kv"><dt>1 USD</dt><dd>${(+LATEST.CNY).toFixed(4)} CNY　${(+LATEST.TWD).toFixed(3)} TWD</dd><dt>1 CNY</dt><dd>${(LATEST.TWD / LATEST.CNY).toFixed(3)} TWD</dd><dt>更新於</dt><dd>${esc(s['匯率更新時間'] || '—')}</dd></dl>
       <button class="linkbtn" id="srate">立即更新匯率</button></div>
@@ -1846,8 +1920,9 @@ function openSettings(){
     <p class="tiny muted" style="margin-top:14px">分類、印章字和顏色在試算表的 Categories 分頁修改；改完後按下方「重新載入」。</p>
     <div class="savebar"><button class="btn ghost" id="sreload">重新載入</button><button class="btn" id="ssave">儲存設定</button></div>`, body => {
     $('#ssave', body).onclick = async () => {
-      const o = {'預設幣別':$('#sdef', body).value, '換算方式':$('#smode', body).value, '統計起始日':$('#sstart', body).value};
-      Object.assign(S.settings, o);
+      const o = {'預設幣別':$('#sdef', body).value, '換算方式':$('#smode', body).value, '統計起始日':$('#sstart', body).value,
+        '年度起始':String($('#sfm', body).value).padStart(2, '0') + '-' + String($('#sfd', body).value).padStart(2, '0')};
+      Object.assign(S.settings, o); S.stats.range = fyOf(S.today); S.list.year = '';
       closeSheet(); remountForms(); afterChange();
       try { await call('api_saveSettings', o); toast('設定已儲存'); } catch(e){ fail(e); }
     };
@@ -1942,7 +2017,7 @@ function go(view){
   $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + view));
   render(); window.scrollTo(0, 0);
 }
-$$('.tabs button').forEach(b => b.onclick = () => { if (b.dataset.view === 'stats') S.stats.range = S.today.slice(0, 4); go(b.dataset.view); });   // 每次打開統計都從今年看起
+$$('.tabs button').forEach(b => b.onclick = () => { if (b.dataset.view === 'stats') S.stats.range = fyOf(S.today); go(b.dataset.view); });   // 每次打開統計都從本年度看起
 $$('.curswitch button').forEach(b => b.onclick = () => { S.disp = b.dataset.cur; store.set('disp', S.disp); paintCurSwitch(); afterChange(); });
 function paintCurSwitch(){ $$('.curswitch button').forEach(b => b.setAttribute('aria-pressed', b.dataset.cur === S.disp)); }
 function render(){
@@ -1971,7 +2046,7 @@ async function boot(fresh){
     applyData(d);
     S.disp = store.get('disp', S.settings['顯示幣別'] || 'CNY');
     Object.assign(S.stats, store.get('stats', {}));
-    S.stats.range = S.today.slice(0, 4);   // 統計頁一打開就看今年
+    S.stats.range = fyOf(S.today);   // 統計頁一打開就看本年度
     paintCurSwitch();
     box.hidden = true; Net.booted = true; paintSync();
     go(S.view);
