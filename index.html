@@ -36,8 +36,11 @@
   }
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
-body{padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom) + 12px);min-height:100vh}
+/* iOS 26 主畫面 App 捲動時狀態列那段出現灰霧、文字變黑：推測系統依「頁面最外層底色」判斷深淺。把最外層設成封面深藍、內容區鋪回紙色，並在頂端放一條固定的同色色塊（未能實機驗證） */
+html{background:var(--cover)}
+.capfix{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:var(--cover);z-index:19;pointer-events:none}
+html,body{margin:0;color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+body{background:var(--paper);padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom) + 12px);min-height:100vh;min-height:100dvh}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
@@ -398,9 +401,10 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="5dbfece8">
+<meta name="app-version" content="8184efb3">
 </head>
 <body>
+<div class="capfix" aria-hidden="true"></div>
 <header class="top">
   <h1 class="brand">記帳本<small>Personal Ledger</small></h1>
   <div class="spacer"></div>
@@ -1384,13 +1388,14 @@ function rangeDef(key){
 function computeStats(){
   const st = S.stats, R = rangeDef(st.range), nowM = ym(S.today);
   const recs = S.records.filter(r => st.withPrj || !r.project);
-  const months = {}; const cats = {}; const years = {};
+  const months = {}; const cats = {}; const years = {}; const mAll = {};   // mAll：不管期間的每月合計（圖表補上年度月份用）
   let exp = 0, sub = 0, nExp = 0;
   const top = [];
   const thisM = nowM, lastM = addMonths(nowM, -1), cal = {[thisM]: {e:0, s:0}, [lastM]: {e:0, s:0}};   // 本月／上月：整個月，不受年度邊界切割
   recs.forEach(r => {
     portions(r, st.spread).forEach(p => {
       if (cal[p.m]) cal[p.m][r.type === '補貼' ? 's' : 'e'] += p.v;
+      if (p.m <= nowM){ const ma = mAll[p.m] || (mAll[p.m] = {e:0, s:0}); ma[r.type === '補貼' ? 's' : 'e'] += p.v; }
       if (p.d < R.dA || p.d > R.dB || p.m > nowM) return;   // 攤提到未來月份的部分還沒發生，不算
       const mm = months[p.m] || (months[p.m] = {e:0, s:0});
       const fy = fyOf(p.d), yy = years[fy] || (years[fy] = {e:0, s:0});
@@ -1408,7 +1413,7 @@ function computeStats(){
   const start = R.d0 > R.dA ? R.d0 : R.dA;
   const days = Math.max(1, daysBetween(start, end) + 1);
   top.sort((a, b) => val(b) - val(a));
-  return {R, exp, sub, net: exp - sub, days, months, cats, years, top: top.slice(0, 10), nExp, start, end, cal};
+  return {R, exp, sub, net: exp - sub, days, months, cats, years, top: top.slice(0, 10), nExp, start, end, cal, mAll};
 }
 function yearDays(y){
   const s0 = S.settings['統計起始日'] || '2017-03-27';
@@ -1454,7 +1459,7 @@ function renderStats(){
       <h3>${st.gran === 'y' ? '每年' : '每月'}支出<div class="seg gran" role="group" aria-label="圖表單位"><button data-g="m" aria-pressed="${st.gran === 'm'}">月</button><button data-g="y" aria-pressed="${st.gran === 'y'}">年</button></div></h3>
       <div class="chartinfo" id="cinfo"></div>
       <div class="chartwrap" id="cwrap"></div>
-      <div class="tiny muted" style="margin-top:4px">深色長條為支出，綠色向下為補貼；點長條看細節。${st.spread ? '季付房租等已按攤提月數平均分攤。' : ''}</div>
+      <div class="tiny muted" style="margin-top:4px">深色長條為支出，綠色向下為補貼；點長條看細節。<span id="cctx"></span>${st.spread ? '季付房租等已按攤提月數平均分攤。' : ''}</div>
     </div>
 
     <div class="sec"><h3>分類占比<span class="tiny muted">點一下看明細</span></h3><div id="catlist"></div></div>
@@ -1478,12 +1483,17 @@ function renderStats(){
 
 function drawChart(X){
   const st = S.stats, wrap = $('#cwrap');
-  let keys, data;
+  let keys, data, ctx = 0;   // ctx：前面有幾根是上年度的對照月份
   if (st.gran === 'y'){
     keys = Object.keys(X.years).sort(); data = keys.map(k => X.years[k]);
   } else {
     const a = ym(X.R.dA), n = monthsBetween(a, ym(X.R.dB)) + 1; keys = []; for (let i = 0; i < n; i++) keys.push(addMonths(a, i));
     keys = keys.filter(k => k <= ym(S.today)); data = keys.map(k => X.months[k] || {e:0, s:0});
+    // 本年度剛開始、月份還少時，只有一兩根長條沒得比：往前補上年度的月份（淺色）湊滿 12 個月
+    if (X.R.fy && X.R.fy === fyOf(S.today) && keys.length && keys.length < 12){
+      ctx = 12 - keys.length; const first = keys[0], pre = []; for (let i = ctx; i >= 1; i--) pre.push(addMonths(first, -i));
+      keys = pre.concat(keys); data = keys.map((k, i) => i < ctx ? (X.mAll[k] || {e:0, s:0}) : (X.months[k] || {e:0, s:0}));
+    }
   }
   if (!keys.length){ wrap.innerHTML = '<div class="empty">沒有資料</div>'; return; }
   const H = 190, padT = 10, padB = 22, axisW = 38;
@@ -1507,23 +1517,26 @@ function drawChart(X){
     const x = i * step + (step - bw) / 2, d = data[i];
     const he = d.e * sc, hs = d.s * sc;
     svg += `<g class="bar" data-i="${i}"><rect x="${i * step}" y="${padT}" width="${step}" height="${plotH}" fill="transparent"/>`;
-    if (he > 0) svg += `<rect x="${x}" y="${zeroY - he}" width="${bw}" height="${he}" fill="var(--ink)" rx="1"/>`;
-    if (hs > 0) svg += `<rect x="${x}" y="${zeroY}" width="${bw}" height="${hs}" fill="var(--plus)" rx="1"/>`;
+    if (he > 0) svg += `<rect x="${x}" y="${zeroY - he}" width="${bw}" height="${he}" fill="${i < ctx ? 'var(--ink-3)' : 'var(--ink)'}" rx="1"/>`;
+    if (hs > 0) svg += `<rect x="${x}" y="${zeroY}" width="${bw}" height="${hs}" fill="var(--plus)"${i < ctx ? ' fill-opacity=".5"' : ''} rx="1"/>`;
     svg += '</g>';
     const label = st.gran === 'y' ? k : (k.endsWith('-01') ? k.slice(0, 4) : (keys.length <= 14 ? +k.slice(5) + '月' : ''));
     if (label) svg += `<text x="${x + (keys.length > 14 && st.gran === 'm' ? 0 : bw / 2)}" y="${H - 6}" text-anchor="${keys.length > 14 && st.gran === 'm' ? 'start' : 'middle'}">${label}</text>`;
   });
-  svg += '</g></svg>';
+  svg += '</g>';
+  if (ctx) svg += `<line x1="${ctx * step}" x2="${ctx * step}" y1="${padT}" y2="${H - padB}" stroke="var(--ink-3)" stroke-dasharray="2 3"/>`;
+  svg += '</svg>';
   wrap.innerHTML = ax + `<div class="scroll">${svg}</div>`;
   const sc2 = $('.scroll', wrap); sc2.scrollLeft = sc2.scrollWidth;
   const info = i => {
     const k = keys[i], d = data[i];
     // 年度頭尾那個月只算到年度邊界，標出來
     const part = st.gran === 'y' || !X.R.fy ? '' : (k === ym(X.R.dA) && X.R.dA.slice(8) !== '01' ? `（${+X.R.dA.slice(8)} 日起）` : k === ym(X.R.dB) && X.R.dB !== lastDay(k) ? `（至 ${+X.R.dB.slice(8)} 日）` : '');
-    $('#cinfo').innerHTML = `<span>${st.gran === 'y' ? k + ' 年度' : k.slice(0, 4) + ' 年 ' + (+k.slice(5)) + ' 月' + part}</span><span>支出 <b>${fmt(d.e)}</b></span>${d.s ? `<span class="p">補貼 <b>${fmt(d.s)}</b></span><span>淨額 <b>${fmt(d.e - d.s)}</b></span>` : ''}`;
+    $('#cinfo').innerHTML = `<span>${st.gran === 'y' ? k + ' 年度' : k.slice(0, 4) + ' 年 ' + (+k.slice(5)) + ' 月' + part + (i < ctx ? '（上年度）' : '')}</span><span>支出 <b>${fmt(d.e)}</b></span>${d.s ? `<span class="p">補貼 <b>${fmt(d.s)}</b></span><span>淨額 <b>${fmt(d.e - d.s)}</b></span>` : ''}`;
     $$('.bar', wrap).forEach(g => g.style.opacity = +g.dataset.i === i ? 1 : .55);
   };
   $$('.bar', wrap).forEach(g => g.addEventListener('click', () => info(+g.dataset.i)));
+  const cc = $('#cctx'); if (cc) cc.textContent = ctx ? '虛線左邊淺色的是上年度的月份，放著對照。' : '';
   info(keys.length - 1);
 }
 function niceTicks(max){
