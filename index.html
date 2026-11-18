@@ -424,14 +424,17 @@ table.ytab{width:100%;border-collapse:collapse;font-size:13px}
 .askrow textarea{flex:1;min-height:42px;max-height:120px;resize:none}
 .askrow .btn{padding:10px 16px}
 .brand small.pending{color:#E8C27A;opacity:1}.brand small.busy{opacity:.9}
-body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, body.agent #pedit, body.agent #ssave, body.agent #srate, body.agent .askbar{display:none !important}
+body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, body.agent #pedit, body.agent #ssave, body.agent #srate, body.agent .askbar, body.agent #shareSec{display:none !important}
+body.viewer .tabs, body.viewer .askbar, body.viewer #btnSettings, body.viewer #budEdit, body.viewer #budNew{display:none !important}
+body.viewer{padding-bottom:calc(env(safe-area-inset-bottom) + 24px)}
+body.viewer .rec, body.viewer .catrow{pointer-events:none}
 .setupbox{max-width:420px;margin:30px auto 0;padding:0 4px}
 .setupbox h3{font-family:var(--serif);font-size:18px;margin:0 0 6px;letter-spacing:.06em}
 .loading{padding:80px 0;text-align:center;font-family:var(--serif);color:var(--ink-2);letter-spacing:.2em}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="741b3004">
+<meta name="app-version" content="f61e2101">
 </head>
 <body>
 <div class="capfix" aria-hidden="true"></div>
@@ -558,7 +561,9 @@ function applyPull(data, rev){
 
 /* ---------- 給既有介面用的 call()：記帳三個動作立即完成，其餘需要連線 */
 const Mock = {};   // （舊版測試用，PWA 不需要）
+const VIEW_OK = { api_bootstrap: 1, api_whoami: 1, api_ping: 1 };
 async function call(fn, ...args){
+  if (Net.cfg && Net.cfg.scope === 'view' && !VIEW_OK[fn]) throw new Error('這個連結只能檢視');
   switch (fn){
     case 'api_bootstrap': {
       const fresh = !!args[0];
@@ -577,7 +582,7 @@ async function call(fn, ...args){
     case 'api_refreshRates': { const j = await api(fn, args); Net.cache.rates = j.result.rates; Net.cache.settings = j.result.settings; adoptRev(j.rev); saveCache(); return j.result; }
     case 'api_ask': { const j = await api(fn, args, 120000); return j.result; }
     case 'api_parse': { const j = await api(fn, args, 60000); return j.result; }
-    case 'api_digest': case 'api_categories': case 'api_whoami': case 'api_ping': { const j = await api(fn, args); return j.result; }
+    case 'api_digest': case 'api_categories': case 'api_whoami': case 'api_ping': case 'api_viewToken': { const j = await api(fn, args); return j.result; }
     default: throw new Error('未知的功能 ' + fn);
   }
 }
@@ -589,6 +594,7 @@ function paintSync(){
   let t = 'Personal Ledger', cls = '';
   if (!Net.cfg) t = '尚未連線';
   else if (Net.cfg.scope === 'agent' && !Net.syncing && !n && !Net.lastErr) t = 'Agent 受限模式';
+  else if (Net.cfg.scope === 'view') t = Net.syncing ? '更新中…' : (Net.lastErr && !navigator.onLine ? '離線，顯示上次的資料' : '僅供檢視' + (Net.lastSync ? '・' + Net.lastSync.slice(5, 16) + ' 更新' : ''));
   else if (Net.syncing) { t = n ? `同步中…（${n} 筆）` : '同步中…'; cls = 'busy'; }
   else if (n) { t = `${n} 筆待同步`; cls = 'pending'; }
   else if (Net.lastErr) { t = navigator.onLine ? '同步失敗，稍後再試' : '離線，連線後自動同步'; cls = 'pending'; }
@@ -607,14 +613,16 @@ function openConnect(first){
     <div class="savebar">${first ? '' : '<button class="btn ghost" id="cfgCancel">取消</button>'}<button class="btn" id="cfgGo">連線</button></div>`;
   const mount = body => {
     const go = async () => {
-      const url = $('#cfgUrl', body).value.trim(), token = $('#cfgTok', body).value.trim();
+      let url = $('#cfgUrl', body).value.trim(), token = $('#cfgTok', body).value.trim();
+      // 也可以把整條分享連結（…#api=…&key=…）直接貼在網址欄
+      const lm = url.match(/#(.*\bkey=.*)$/); if (lm){ const q = new URLSearchParams(lm[1]); if (q.get('key')){ token = q.get('key'); url = q.get('url') || (q.get('api') ? `https://script.google.com/macros/s/${q.get('api')}/exec` : url); } }
       if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)){ $('#cfgErr', body).textContent = '網址應該長這樣：https://script.google.com/macros/s/…/exec'; return; }
       if (token.length < 20){ $('#cfgErr', body).textContent = '密鑰太短，請從 Settings 分頁完整複製'; return; }
       $('#cfgGo', body).disabled = true; $('#cfgErr', body).textContent = '連線中…';
       const prev = Net.cfg; Net.cfg = { url, token };
       try { const w = await api('api_whoami', [], 20000); Net.cfg.scope = (w.result && w.result.scope) || 'full'; LS.set('cfg', Net.cfg);
         if (prev && prev.url !== url){ Net.cache = null; LS.del('cache'); }
-        if (!first) closeSheet(); toast(Net.cfg.scope === 'agent' ? '已連線（Agent 受限模式）' : '已連線'); boot(true); }
+        if (!first) closeSheet(); toast(Net.cfg.scope === 'agent' ? '已連線（Agent 受限模式）' : Net.cfg.scope === 'view' ? '已連線（僅供檢視）' : '已連線'); boot(true); }
       catch(e){ Net.cfg = prev; $('#cfgGo', body).disabled = false; $('#cfgErr', body).textContent = e.message || String(e); }
     };
     $('#cfgGo', body).onclick = go;
@@ -641,7 +649,7 @@ async function applyPendingCfg(){
     if (!prev || prev.url !== c.url || prev.token !== c.token){ Net.cache = null; LS.del('cache'); Net.outbox = []; saveOutbox(); } return true; }
   catch(e){ Net.cfg = prev; toast('連結裡的密鑰無法連線：' + (e.message || e), { err: true }); return false; }
 }
-function applyScopeUI(){ document.body.classList.toggle('agent', !!(Net.cfg && Net.cfg.scope === 'agent')); }
+function applyScopeUI(){ document.body.classList.toggle('agent', !!(Net.cfg && Net.cfg.scope === 'agent')); document.body.classList.toggle('viewer', !!(Net.cfg && Net.cfg.scope === 'view')); }
 
 /* ---------- 版本更新：不靠 service worker 的更新偵測（iPhone 主畫面 App 不可靠），
  *  自己向 GitHub 查 version.json；版本不同就清掉快取、重新載入 */
@@ -1182,6 +1190,7 @@ async function removeRecord(rec, silent){
 }
 
 function openEdit(id){
+  if (isViewMode()) return;
   const rec = S.records.find(r => r.id === id); if (!rec) return;
   openSheet(`<h3>修改紀錄</h3><div class="tiny muted">${esc(rec.src || '')}${rec.created ? '　建立於 ' + esc(rec.created) : ''}</div><div class="editform"></div>`,
     body => mountForm($('.editform', body), {...rec}, {mode:'edit'}));
@@ -1259,6 +1268,8 @@ function parseLocal(text){
 }
 S.ai = { items: [], src: '' };
 const isAgentMode = () => !!(typeof Net !== 'undefined' && Net.cfg && Net.cfg.scope === 'agent');
+/* 檢視模式（分享給家人的連結）：只看統計頁，不能記帳、不能改 */
+const isViewMode = () => !!(typeof Net !== 'undefined' && Net.cfg && Net.cfg.scope === 'view');
 function mountAIBox(v){
   const ta = $('.aitext', v), go = $('.aigo', v), mic = $('.micbtn', v), pv = $('.aipreview', v);
   S.ai.cur = S.settings['預設幣別'] || 'CNY';
@@ -1493,7 +1504,7 @@ function renderStats(){
       <div class="tiny muted" style="margin-top:4px">深色長條為支出，綠色向下為補貼；點長條看細節。<span id="cctx"></span>${st.spread ? '季付房租等已按攤提月數平均分攤。' : ''}</div>
     </div>
 
-    <div class="sec"><h3>分類占比<span class="tiny muted">點一下看明細</span></h3><div id="catlist"></div></div>
+    <div class="sec"><h3>分類占比${isViewMode() ? '' : '<span class="tiny muted">點一下看明細</span>'}</h3><div id="catlist"></div></div>
 
     <div class="sec"><h3>逐年</h3><div class="tblwrap"><table class="ytab"><thead><tr><th>年度</th><th>支出</th><th>補貼</th><th>淨支出</th><th>日均</th></tr></thead><tbody>
       ${Object.keys(X.years).sort().reverse().map(y => { const o = X.years[y]; return `<tr><td>${y}</td><td>${fmt(o.e)}</td><td class="p">${o.s ? fmt(o.s) : '—'}</td><td>${fmt(o.e - o.s)}</td><td>${fmt((o.e - o.s) / yearDays(y))}</td></tr>`; }).join('')}
@@ -1587,6 +1598,7 @@ function drawCats(X){
   $('#catlist').innerHTML = (list.map(e => row(e)).join('') +
     (hist ? `<div class="histsep">以前按月合併記的日常開銷，沒有拆到上面各分類，所以單獨列出。</div>${row(hist, '歷史彙總（未細分）')}` : '')) || '<div class="empty">沒有支出</div>';
   $$('.catrow', $('#catlist')).forEach(b => b.onclick = () => {
+    if (isViewMode()) return;
     if (!b.dataset.cat){ S.prj.open = b.dataset.k.replace('專項：', ''); go('prj'); return; }
     const L = S.list; L.q = ''; L.months = 8; L.type = ''; L.cat = b.dataset.cat;
     L.year = /^\d{4}$/.test(S.stats.range) ? S.stats.range : '';
@@ -2057,6 +2069,10 @@ function openSettings(){
     <div class="sec" style="margin-top:18px"><h3>連線與同步</h3>
       <dl class="kv"><dt>狀態</dt><dd id="syncState"></dd><dt>上次同步</dt><dd>${esc(Net.lastSync || '—')}</dd><dt>App 版本</dt><dd>${esc((document.querySelector('meta[name=app-version]') || {}).content || '—')}</dd></dl>
       <button class="linkbtn" id="sconn">修改連線設定</button>　<button class="linkbtn" id="ssyncnow">立即同步</button>　<button class="linkbtn" id="supdate">檢查更新</button></div>
+    <div class="sec" style="margin-top:18px" id="shareSec"><h3>分享給家人看</h3>
+      <div class="tiny muted">產生一條連結，對方打開只會看到「統計」這一頁（支出與預算），不能記帳、不能修改。</div>
+      <button class="linkbtn" id="sshare">分享檢視連結</button>　<button class="linkbtn" id="sshareNew">換一條新的（舊的失效）</button>
+      <div class="tiny muted" id="sshareMsg" style="margin-top:4px;word-break:break-all"></div></div>
     <p class="tiny muted" style="margin-top:14px">分類、印章字和顏色在試算表的 Categories 分頁修改；改完後按下方「重新載入」。</p>
     <div class="savebar"><button class="btn ghost" id="sreload">重新載入</button><button class="btn" id="ssave">儲存設定</button></div>`, body => {
     $('#ssave', body).onclick = async () => {
@@ -2074,6 +2090,20 @@ function openSettings(){
     $('#sreload', body).onclick = () => { closeSheet(); boot(true); };
     $('#syncState', body).textContent = Net.outbox.length ? `${Net.outbox.length} 筆待同步` : (Net.lastErr ? '上次同步失敗：' + Net.lastErr : '已同步');
     $('#sconn', body).onclick = () => openConnect(false);
+    const shareLink = async reset => {
+      const msg = $('#sshareMsg', body); msg.textContent = '產生中…';
+      try {
+        const r = await call('api_viewToken', !!reset);
+        const id = (Net.cfg.url.match(/\/macros\/s\/([\w-]+)\/exec/) || [])[1];
+        const link = location.origin + location.pathname + '#' + (id ? 'api=' + id : 'url=' + encodeURIComponent(Net.cfg.url)) + '&key=' + r.token;
+        let done = '';
+        if (navigator.share){ try { await navigator.share({ title: '記帳本（僅供檢視）', url: link }); done = '已開啟分享。'; } catch(e){} }
+        if (!done){ try { await navigator.clipboard.writeText(link); done = '連結已複製，貼給對方就可以。'; } catch(e){ done = '請長按複製：' + link; } }
+        msg.textContent = (reset ? '已換新，舊連結失效。' : '') + done;
+      } catch(e){ msg.textContent = /未知的功能/.test(e.message || '') ? '後端還是舊版：請先把最新的 Code.gs 貼到 Apps Script 並重新部署。' : '沒有成功：' + (e.message || e); }
+    };
+    $('#sshare', body).onclick = () => shareLink(false);
+    $('#sshareNew', body).onclick = () => shareLink(true);
     $('#supdate', body).onclick = async () => {
       const el = $('#supdate', body); el.textContent = '檢查中…';
       const r = await checkVersion(true);
@@ -2152,6 +2182,7 @@ $('#askOpen').onclick = openAsk;
  *  Navigation & boot
  * ===================================================================== */
 function go(view){
+  if (isViewMode()) view = 'stats';
   S.view = view;
   $$('.tabs button').forEach(b => b.dataset.view === view ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
   $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + view));
@@ -2198,7 +2229,7 @@ async function boot(fresh){
 }
 /* 畫面出來後再在背景檢查匯率（超過 6 小時才真的去抓） */
 async function bgRates(){
-  if (!Net.cfg || !navigator.onLine) return;
+  if (!Net.cfg || !navigator.onLine || Net.cfg.scope === 'view') return;
   try {
     const before = S.settings['匯率更新時間'];
     const r = await call('api_refreshRates', false);
