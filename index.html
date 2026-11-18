@@ -397,7 +397,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="ad29aabb">
+<meta name="app-version" content="0fad5228">
 </head>
 <body>
 <header class="top">
@@ -1610,11 +1610,11 @@ function computeBudget(year, view){
     return {l, budget, actual, expected};
   });
   const sumExp = xs => live ? xs.reduce((a, x) => a + (x.expected == null ? Math.min(x.actual, x.budget) : x.expected), 0) : null;
-  const skipped = lines.filter(l => view === 'm' && l.period === '年');
+  const skipped = lines.filter(l => view === 'm' && l.period === '年'), skippedAct = skipped.reduce((a, l) => a + act.get(l), 0);
   const tb = rows.reduce((a, x) => a + x.budget, 0), ta = rows.reduce((a, x) => a + x.actual, 0) + hist;
   const histGroup = (lines.find(l => l.tokens.some(t => t.all)) || lines.find(l => l.period === '月') || lines[0]);
   const te = live ? sumExp(rows) : null;
-  return {rows, skipped, pace, tb, ta, te, sumExp, none, sub, hist, items, histItems, histGroup: histGroup.group || histGroup.name};
+  return {rows, skipped, skippedAct, pace, tb, ta, te, sumExp, none, sub, hist, items, histItems, histGroup: histGroup.group || histGroup.name};
 }
 /* expected＝照時間「應該花到」的金額；固定開銷沒有 expected（月初一次付清屬正常） */
 function budStatus(actual, budget, expected){
@@ -1712,7 +1712,7 @@ function drawBudget(){
         const ga = g.rows.reduce((a, x) => a + x.actual, 0) + h, gb = g.rows.reduce((a, x) => a + x.budget, 0);
         return budLineHTML(g.g, ga, gb, B.sumExp(g.rows), g.g);
       }).join('')}
-      <div class="note">${view === 'm' && B.skipped.length ? `${B.skipped.map(l => esc(l.name)).join('、')}按年計，切到「全年」看。` : ''}
+      <div class="note">${view === 'm' && B.skipped.length ? `不含按年計的${B.skipped.map(l => esc(l.name)).join('、')}${B.skippedAct > 0 ? `（本月花了 ${fmt(B.skippedAct)}）` : ''}，切到「全年」看。` : ''}
         ${B.hist > 0 ? `${esc(B.histGroup)}含以前按月合併記的日常開銷 ${fmt(B.hist)}。` : ''}
         ${B.none > 0 ? `${fmt(B.none)} 沒有對應到預算項目。` : ''}
         ${B.sub > 0 ? `補貼 ${fmt(B.sub)} 未計入。` : ''}
