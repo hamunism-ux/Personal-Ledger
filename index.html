@@ -301,6 +301,11 @@ svg text{font-family:var(--num);fill:var(--ink-3);font-size:11px}
 .bbar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--plus)}
 .bbar i.warn{background:#B8862E}.bbar i.over{background:var(--seal)}.bbar i.full{background:var(--ink-2)}
 .bbar b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);border-radius:1px}
+.bbar i.fx{background:var(--ink-3)}
+.bud .btotal .bbar i.fx{border-radius:8px 0 0 8px}.bud .btotal .bbar i.rest{border-radius:0 8px 8px 0}
+.bt-leg{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:6px;font-size:11px;color:var(--ink-3)}
+.bt-leg i{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--plus);margin-right:5px}
+.bt-leg i.fx{background:var(--ink-3)}
 .bbar.over{background:none}
 .bbar i.used{background:var(--ink-3);border-radius:4px 0 0 4px}
 .bbar i.excess{background:repeating-linear-gradient(-45deg,var(--seal) 0 4px,#D9786B 4px 7px);border-radius:0 4px 4px 0}
@@ -434,7 +439,7 @@ body.viewer .rec, body.viewer .catrow{pointer-events:none}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="5c4c1c81">
+<meta name="app-version" content="e17eb981">
 </head>
 <body>
 <div class="capfix" aria-hidden="true"></div>
@@ -1677,7 +1682,8 @@ function computeBudget(year, view){
   const tb = rows.reduce((a, x) => a + x.budget, 0), ta = rows.reduce((a, x) => a + x.actual, 0) + hist;
   const histGroup = (lines.find(l => l.tokens.some(t => t.all)) || lines.find(l => l.period === '月') || lines[0]);
   const te = live ? sumExp(rows) : null;
-  return {rows, skipped, skippedAct, pace, tb, ta, te, sumExp, none, sub, hist, items, histItems, histGroup: histGroup.group || histGroup.name};
+  const tfix = rows.reduce((a, x) => a + (x.l.fixed ? x.actual : 0), 0);   // 固定開銷已付
+  return {rows, skipped, skippedAct, tfix, pace, tb, ta, te, sumExp, none, sub, hist, items, histItems, histGroup: histGroup.group || histGroup.name};
 }
 /* expected＝照時間「應該花到」的金額；固定開銷沒有 expected（月初一次付清屬正常） */
 function budStatus(actual, budget, expected){
@@ -1687,7 +1693,7 @@ function budStatus(actual, budget, expected){
   if (expected != null && actual > expected + budget * 0.1) return 'warn';
   return '';
 }
-function budBar(actual, budget, expected){
+function budBar(actual, budget, expected, fixed){
   if (budget > 0 && actual > budget * 1.005){
     // 超出：整條長度＝實際花費，預算線之前是用完的預算（灰），之後是超出的部分（紅色斜紋）
     const lim = budget / actual * 100;
@@ -1696,7 +1702,12 @@ function budBar(actual, budget, expected){
   }
   const pct = budget > 0 ? Math.min(100, actual / budget * 100) : (actual > 0 ? 100 : 0);
   const mk = expected != null && budget > 0 && expected > 0 && expected < budget ? expected / budget * 100 : null;
-  return `<div class="bbar"><i class="${budStatus(actual, budget, expected)}" style="width:${pct.toFixed(1)}%"></i>${mk != null ? `<b style="left:calc(${mk.toFixed(1)}% - 1px)"></b>` : ''}</div>`;
+  // fixed：其中固定開銷（房租、給家裡、社保…）已付的金額。分兩段畫，免得月初一付完就以為花得很快
+  const fx = fixed > 0 && budget > 0 ? Math.min(pct, fixed / budget * 100) : 0;
+  const bars = fx > 0.5
+    ? `<i class="fx" style="width:${fx.toFixed(1)}%"></i>${pct - fx > 0.3 ? `<i class="${budStatus(actual, budget, expected)} rest" style="left:${fx.toFixed(1)}%;width:${(pct - fx).toFixed(1)}%"></i>` : ''}`
+    : `<i class="${budStatus(actual, budget, expected)}" style="width:${pct.toFixed(1)}%"></i>`;
+  return `<div class="bbar">${bars}${mk != null ? `<b style="left:calc(${mk.toFixed(1)}% - 1px)"></b>` : ''}</div>`;
 }
 /* 各項參考：一行精簡顯示（名稱｜細長條｜金額），重點留給上方的年度總計 */
 function budLineHTML(name, actual, budget, expected, key){
@@ -1766,7 +1777,8 @@ function drawBudget(){
     <div class="btotal">
       <div class="bt-h"><span class="muted">${view === 'm' ? +S.today.slice(5, 7) + ' 月已花' : (B.pace === 0 ? '還沒開始' : year === curY ? '本年度已花' : '全年度花費')}</span><span class="muted">預算 ${fmt(B.tb)}</span></div>
       <div class="big">${fmt(B.ta)}</div>
-      ${budBar(B.ta, B.tb, B.te)}
+      ${budBar(B.ta, B.tb, B.te, B.tfix)}
+      ${B.tfix > 0 && B.ta <= B.tb * 1.005 ? `<div class="bt-leg"><span><i class="fx"></i>固定開銷 ${fmt(B.tfix)}</span><span><i></i>其他 ${fmt(B.ta - B.tfix)}</span></div>` : ''}
       ${paceHTML ? `<div class="bt-stats">${paceHTML}</div>` : ''}
       ${view === 'y' ? `<div class="tiny muted" style="margin-top:8px">${fyRangeText(year)}</div>` : ''}
       ${proj ? `<div class="note">照目前速度，全年約 ${fmt(proj)}，${proj > B.tb ? `會<b style="color:var(--seal)">超出</b>預算 ${fmt(proj - B.tb)}` : '守得住預算'}。</div>` : ''}
