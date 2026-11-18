@@ -257,6 +257,7 @@ svg text{font-family:var(--num);fill:var(--ink-3);font-size:11px}
 .bud .bt-stats span{display:block;font-size:12px;color:var(--ink-3)}
 .bud .bt-stats b{font-family:var(--num);font-feature-settings:"lnum" 1,"tnum" 1;font-size:20px;font-weight:500}
 .bud .bt-stats .o b{color:var(--seal)}
+.bud .bt-stats .g b{color:var(--plus)}
 .bdetail{margin-top:16px}
 .bd-h{font-size:13px;color:var(--ink-2);display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--rule-soft);padding-bottom:4px;margin-bottom:2px}
 .bd-h span{font-size:11px;color:var(--ink-3)}
@@ -397,7 +398,7 @@ body.agent .del, body.agent #budEdit, body.agent #budNew, body.agent #newPrj, bo
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;font-family:var(--num)}
 </style>
-<meta name="app-version" content="0fad5228">
+<meta name="app-version" content="5dbfece8">
 </head>
 <body>
 <header class="top">
@@ -1691,6 +1692,13 @@ function drawBudget(){
   const used = B.tb ? B.ta / B.tb : 0;
   // 全年推估與進度線用同一把尺：實花 ÷ 照時間應花（固定開銷按已過月份、其他按天數），再放大到全年預算
   const proj = view === 'y' && B.pace > 0.08 && B.pace < 1 && B.te > 0 ? B.ta / B.te * B.tb : null;
+  // 不寫「還剩多少可花」，改跟時間進度比：照正常速度到今天應該花到 te，實際花了 ta
+  const gap = B.te != null ? B.te - B.ta : null;
+  const paceHTML = B.ta > B.tb * 1.005 ? `<div class="o"><span>已超出預算</span><b>${fmt(B.ta - B.tb)}</b></div>`
+    : gap == null ? (B.pace >= 1 ? `<div class="g"><span>全年度比預算省下</span><b>${fmt(B.tb - B.ta)}</b></div>` : '')
+    : Math.abs(gap) < B.tb * 0.005 ? `<div><span>跟正常進度比</span><b style="font-family:var(--serif);font-size:17px">剛好在進度上</b></div>`
+    : gap > 0 ? `<div class="g"><span>比正常進度省下</span><b>${fmt(gap)}</b></div>`
+    : `<div class="o"><span>比正常進度多花</span><b>${fmt(-gap)}</b></div>`;
   const groups = []; B.rows.forEach(x => { const g = x.l.group || x.l.name; let o = groups.find(z => z.g === g); if (!o){ o = {g, rows:[]}; groups.push(o); } o.rows.push(x); });
   el.innerHTML = `<div class="sec bud">
     <h3>${esc(year)} 年度預算${year === curY ? `<div class="seg" id="budView"><button data-v="y" aria-pressed="${view === 'y'}">全年</button><button data-v="m" aria-pressed="${view === 'm'}">本月</button></div>` : ''}</h3>
@@ -1698,11 +1706,9 @@ function drawBudget(){
       <div class="bt-h"><span class="muted">${view === 'm' ? +S.today.slice(5, 7) + ' 月已花' : (B.pace === 0 ? '還沒開始' : year === curY ? '本年度已花' : '全年度花費')}</span><span class="muted">預算 ${fmt(B.tb)}</span></div>
       <div class="big">${fmt(B.ta)}</div>
       ${budBar(B.ta, B.tb, B.te)}
-      <div class="bt-stats">
-        ${B.tb - B.ta >= 0 ? `<div><span>還剩</span><b>${fmt(B.tb - B.ta)}</b></div>` : `<div class="o"><span>已超出</span><b>${fmt(B.ta - B.tb)}</b></div>`}
-      </div>
+      ${paceHTML ? `<div class="bt-stats">${paceHTML}</div>` : ''}
       ${view === 'y' ? `<div class="tiny muted" style="margin-top:8px">${fyRangeText(year)}</div>` : ''}
-      ${proj ? `<div class="note">照目前速度，全年約 ${fmt(proj)}，${proj > B.tb ? `會<b style="color:var(--seal)">超出</b>` : '低於'}預算 ${fmt(Math.abs(proj - B.tb))}。</div>` : ''}
+      ${proj ? `<div class="note">照目前速度，全年約 ${fmt(proj)}，${proj > B.tb ? `會<b style="color:var(--seal)">超出</b>預算 ${fmt(proj - B.tb)}` : '守得住預算'}。</div>` : ''}
     </div>
     <div class="bdetail">
       <div class="bd-h">各項參考</div>
